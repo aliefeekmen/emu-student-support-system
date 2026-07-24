@@ -168,7 +168,7 @@ The initial system supports:
 - Staff answers
 - Viewing question and answer details
 
-Six automated API tests were created, and all tests passed.
+Nine automated backend and frontend tests were created, and all tests passed.
 
 ## 12. Conclusion
 

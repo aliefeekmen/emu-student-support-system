@@ -71,3 +71,28 @@ def test_get_missing_knowledge_entry():
     assert response.json() == {
         "detail": "Knowledge entry not found."
     }
+
+
+def test_expert_dashboard_page():
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert "Student Q&A Center" in response.text
+    assert "Expert Panel" in response.text
+
+
+def test_student_dashboard_page():
+    response = client.get("/student-dashboard")
+
+    assert response.status_code == 200
+    assert "Student Q&A Center" in response.text
+    assert "Ask New Question" in response.text
+
+
+def test_dashboard_stylesheet():
+    response = client.get(
+        "/static/css/dashboard.css"
+    )
+
+    assert response.status_code == 200
+    assert ".app-shell" in response.text

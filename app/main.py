@@ -1,7 +1,9 @@
 from pathlib import Path
 import sqlite3
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 
 project_folder = Path(__file__).resolve().parent.parent
@@ -12,7 +14,17 @@ app = FastAPI(
     description="Backend API for the DAU student support system.",
     version="1.0.0",
 )
+templates = Jinja2Templates(
+    directory=str(project_folder / "templates")
+)
 
+app.mount(
+    "/static",
+    StaticFiles(
+        directory=str(project_folder / "static")
+    ),
+    name="static",
+)
 
 @app.get("/")
 def root():
@@ -590,6 +602,7 @@ def get_question_detail(question_id: int):
                 questions.question_text,
                 questions.status,
                 students.full_name,
+                students.university_id,
                 categories.name_tr,
                 categories.name_en,
                 languages.code,
@@ -654,13 +667,126 @@ def get_question_detail(question_id: int):
         "question_text": question[2],
         "status": question[3],
         "student_name": question[4],
+        "student_number": question[5],
         "category": {
-            "name_tr": question[5],
-            "name_en": question[6],
+            "name_tr": question[6],
+            "name_en": question[7],
         },
-        "language": question[7],
-        "assigned_staff": question[8],
-        "created_at": question[9],
-        "updated_at": question[10],
+        "language": question[8],
+        "assigned_staff": question[9],
+        "created_at": question[10],
+        "updated_at": question[11],
         "answers": answers,
     }
+@app.get("/dashboard", include_in_schema=False)
+def dashboard_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard.html",
+        context={},
+    )
+@app.get("/students/{student_id}/questions")
+def list_student_questions(student_id: int):
+    with sqlite3.connect(database_path) as connection:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT users.id
+            FROM users
+            JOIN roles
+                ON users.role_id = roles.id
+            WHERE users.id = ?
+              AND roles.name = 'student'
+              AND users.is_active = 1
+            """,
+            (student_id,),
+        )
+
+        if cursor.fetchone() is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found.",
+            )
+
+        cursor.execute(
+            """
+            SELECT
+                questions.id,
+                questions.subject,
+                questions.question_text,
+                questions.status,
+                categories.id,
+                categories.name_tr,
+                categories.name_en,
+                languages.code,
+                questions.created_at,
+                questions.updated_at,
+                staff.full_name,
+
+                (
+                    SELECT answers.answer_text
+                    FROM answers
+                    WHERE answers.question_id = questions.id
+                    ORDER BY answers.id DESC
+                    LIMIT 1
+                ) AS latest_answer,
+
+                (
+                    SELECT answers.created_at
+                    FROM answers
+                    WHERE answers.question_id = questions.id
+                    ORDER BY answers.id DESC
+                    LIMIT 1
+                ) AS answer_date
+
+            FROM questions
+
+            JOIN categories
+                ON questions.category_id = categories.id
+
+            JOIN languages
+                ON questions.language_id = languages.id
+
+            LEFT JOIN users AS staff
+                ON questions.assigned_staff_id = staff.id
+
+            WHERE questions.student_id = ?
+
+            ORDER BY questions.id DESC
+            """,
+            (student_id,),
+        )
+
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "subject": row[1],
+            "question_text": row[2],
+            "status": row[3],
+            "category": {
+                "id": row[4],
+                "name_tr": row[5],
+                "name_en": row[6],
+            },
+            "language": row[7],
+            "created_at": row[8],
+            "updated_at": row[9],
+            "staff_name": row[10],
+            "latest_answer": row[11],
+            "answer_date": row[12],
+        }
+        for row in rows
+    ]
+@app.get(
+    "/student-dashboard",
+    include_in_schema=False,
+)
+def student_dashboard_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="student_dashboard.html",
+        context={},
+    )
