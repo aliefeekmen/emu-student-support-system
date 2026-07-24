@@ -1,0 +1,26 @@
+# Python virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Visual Studio files
+.vs/
+
+# Environment variables and secrets
+.env
+
+# Local database
+database/*.db
+
+# Raw and generated datasets
+data/*.csv
+
+# Uploaded files
+uploads/
+
+# Operating system files
+Thumbs.db
+.DS_Store
