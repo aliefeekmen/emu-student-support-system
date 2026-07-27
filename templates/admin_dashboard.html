@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Admin Dashboard | DAU Q&A Center</title>
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', path='/css/dashboard.css') }}"
+    >
+</head>
+
+<body data-user-id="{{ user.id }}">
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark">EMU</div>
+
+                <div class="brand-text">
+                    <strong>Eastern Mediterranean</strong>
+                    <span>University</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <div class="nav-section-label">
+                    Administration
+                </div>
+
+                <button class="nav-item active">
+                    <span class="icon">
+                        <i class="ph ph-squares-four"></i>
+                    </span>
+                    Overview
+                </button>
+
+                <button class="nav-item">
+                    <span class="icon">
+                        <i class="ph ph-users"></i>
+                    </span>
+                    User Management
+                </button>
+
+                <button class="nav-item">
+                    <span class="icon">
+                        <i class="ph ph-folders"></i>
+                    </span>
+                    Category Management
+                </button>
+
+                <button class="nav-item">
+                    <span class="icon">
+                        <i class="ph ph-chart-bar"></i>
+                    </span>
+                    Reports and Statistics
+                </button>
+
+                <button class="nav-item">
+                    <span class="icon">
+                        <i class="ph ph-database"></i>
+                    </span>
+                    Institutional Memory
+                </button>
+
+                <button class="nav-item">
+                    <span class="icon">
+                        <i class="ph ph-brain"></i>
+                    </span>
+                    AI Configuration
+                </button>
+
+                <button class="nav-item">
+                    <span class="icon">
+                        <i class="ph ph-gear"></i>
+                    </span>
+                    System Settings
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="nav-item">
+                    <span class="icon">
+                        <i class="ph ph-info"></i>
+                    </span>
+                    Help
+                </button>
+            </div>
+        </aside>
+
+        <div class="main-area">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <strong>Administrator Panel</strong>
+                </div>
+
+                <div class="topbar-actions">
+                    <button
+                        class="icon-button"
+                        aria-label="Notifications"
+                    >
+                        <i class="ph ph-bell"></i>
+                    </button>
+
+                    <div class="profile">
+                        <div class="profile-copy">
+                            <strong>{{ user.full_name }}</strong>
+                            <span>{{ user.university_id }}</span>
+                        </div>
+
+                        <div class="avatar">DA</div>
+                    </div>
+
+                    <form action="/logout" method="post">
+                        <button
+                            class="logout-button"
+                            type="submit"
+                        >
+                            <i class="ph ph-sign-out"></i>
+                            Log Out
+                        </button>
+                    </form>
+                </div>
+            </header>
+
+            <main class="page-content">
+                <section class="page-heading">
+                    <div>
+                        <h1>System Overview</h1>
+
+                        <p>
+                            Monitor users, questions, answers,
+                            categories, and institutional memory.
+                        </p>
+                    </div>
+
+                    <button
+                        class="primary-button"
+                        id="refresh-admin"
+                    >
+                        <i class="ph ph-arrows-clockwise"></i>
+                        Refresh Data
+                    </button>
+                </section>
+
+                <section class="stats-grid admin-stats">
+                    <article class="stat-card cyan">
+                        <div class="stat-label">Users</div>
+                        <div
+                            class="stat-value"
+                            id="admin-user-count"
+                        >
+                            0
+                        </div>
+                        <div class="stat-caption">
+                            Registered accounts
+                        </div>
+                    </article>
+
+                    <article class="stat-card pink">
+                        <div class="stat-label">
+                            Total Questions
+                        </div>
+                        <div
+                            class="stat-value"
+                            id="admin-question-count"
+                        >
+                            0
+                        </div>
+                        <div class="stat-caption">
+                            Student questions
+                        </div>
+                    </article>
+
+                    <article class="stat-card green">
+                        <div class="stat-label">Answers</div>
+                        <div
+                            class="stat-value"
+                            id="admin-answer-count"
+                        >
+                            0
+                        </div>
+                        <div class="stat-caption">
+                            Staff answers
+                        </div>
+                    </article>
+
+                    <article class="stat-card yellow">
+                        <div class="stat-label">Categories</div>
+                        <div
+                            class="stat-value"
+                            id="admin-category-count"
+                        >
+                            0
+                        </div>
+                        <div class="stat-caption">
+                            Normalized categories
+                        </div>
+                    </article>
+
+                    <article class="stat-card purple">
+                        <div class="stat-label">
+                            Knowledge Entries
+                        </div>
+                        <div
+                            class="stat-value"
+                            id="admin-knowledge-count"
+                        >
+                            0
+                        </div>
+                        <div class="stat-caption">
+                            Institutional records
+                        </div>
+                    </article>
+                </section>
+
+                <section class="admin-content-grid">
+                    <article class="panel">
+                        <header class="panel-header">
+                            <h2>Question Status</h2>
+
+                            <i class="ph ph-chart-donut"></i>
+                        </header>
+
+                        <div class="panel-body">
+                            <div class="status-summary">
+                                <div>
+                                    <span class="status-dot open"></span>
+                                    <span>Open</span>
+                                    <strong id="admin-open-count">0</strong>
+                                </div>
+
+                                <div>
+                                    <span class="status-dot assigned"></span>
+                                    <span>Assigned</span>
+                                    <strong id="admin-assigned-count">
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span class="status-dot answered"></span>
+                                    <span>Answered</span>
+                                    <strong id="admin-answered-count">
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span class="status-dot closed"></span>
+                                    <span>Closed</span>
+                                    <strong id="admin-closed-count">
+                                        0
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="panel">
+                        <header class="panel-header">
+                            <h2>System Status</h2>
+
+                            <span class="tag answered">Healthy</span>
+                        </header>
+
+                        <div class="panel-body">
+                            <dl class="info-list">
+                                <div class="info-row">
+                                    <dt>Database</dt>
+                                    <dd>SQLite Connected</dd>
+                                </div>
+
+                                <div class="info-row">
+                                    <dt>API</dt>
+                                    <dd>FastAPI Running</dd>
+                                </div>
+
+                                <div class="info-row">
+                                    <dt>Authentication</dt>
+                                    <dd>Session Protected</dd>
+                                </div>
+
+                                <div class="info-row">
+                                    <dt>AI Model</dt>
+                                    <dd>Waiting for Train/Test Split</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="panel admin-user-panel">
+                    <header class="panel-header">
+                        <h2>User Management</h2>
+
+                        <span class="tag" id="admin-user-table-count">
+                            0 users
+                        </span>
+                    </header>
+
+                    <div class="admin-table-wrapper">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>University ID</th>
+                                    <th>Full Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="admin-user-table">
+                                <tr>
+                                    <td colspan="7">
+                                        Loading users...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <div
+                    class="empty-state"
+                    id="admin-message"
+                    hidden
+                ></div>
+            </main>
+        </div>
+    </div>
+
+    <script
+        src="{{ url_for('static', path='/js/admin_dashboard.js') }}"
+    ></script>
+</body>
+</html>

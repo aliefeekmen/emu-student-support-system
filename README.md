@@ -299,3 +299,43 @@ These accounts and their passwords must not be used in a production environment.
 - Complete Turkish and English interface switching
 - Add automatic category classification
 - Move from SQLite to PostgreSQL if required
+
+## Authentication and User Roles
+
+The system includes session-based authentication with three user roles:
+
+- Student: creates questions and views their own questions.
+- Staff: views, assigns, and answers student questions.
+- Admin: views the administration dashboard and system statistics.
+
+## Local Environment Setup
+
+Create a `.env` file in the project root and add:
+
+```env
+SESSION_SECRET=your-long-random-secret-key
+
+Install the dependencies and start the application:
+
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --reload
+
+Open the application at:
+
+http://127.0.0.1:8000/login
+
+Demo Accounts
+Role	Email	Password
+Student	student@demo.local	Student123!
+Staff	staff@demo.local	Staff123!
+Admin	admin@demo.local	Admin123!
+
+These accounts are provided only for local development and demonstration.
+
+Testing
+
+Run the automated tests with:
+
+python -m pytest -v
+
+The current test suite contains 16 tests for the API, authentication, role permissions, and dashboard pages.

@@ -37,7 +37,7 @@
     >
 </head>
 
-<body>
+<body data-user-id="{{ user.id }}">
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
@@ -75,37 +75,29 @@
                     Student Q&A Center
                 </div>
 
-                <button
-                    class="nav-item active"
-                    data-status-filter=""
-                >
+                <button class="nav-item active"
+                        data-status-filter="">
                     <span class="icon">
                         <i class="ph ph-envelope-simple"></i>
                     </span>
                     Incoming Questions
                 </button>
 
-                <button
-                    class="nav-item"
-                    data-status-filter="assigned"
-                >
+                <button class="nav-item"
+                        data-status-filter="assigned">
                     <span class="icon">
                         <i class="ph ph-clock"></i>
                     </span>
                     Pending Questions
 
-                    <span
-                        class="nav-badge"
-                        id="pending-nav-count"
-                    >
+                    <span class="nav-badge"
+                          id="pending-nav-count">
                         0
                     </span>
                 </button>
 
-                <button
-                    class="nav-item"
-                    data-status-filter="answered"
-                >
+                <button class="nav-item"
+                        data-status-filter="answered">
                     <span class="icon">
                         <i class="ph ph-check-circle"></i>
                     </span>
@@ -147,10 +139,8 @@
         <div class="main-area">
             <header class="topbar">
                 <div class="topbar-left">
-                    <button
-                        class="icon-button mobile-menu"
-                        aria-label="Open menu"
-                    >
+                    <button class="icon-button mobile-menu"
+                            aria-label="Open menu">
                         <i class="ph ph-list"></i>
                     </button>
 
@@ -158,10 +148,6 @@
                 </div>
 
                 <div class="topbar-actions">
-                    <a class="secondary-button"
-                       href="/student-dashboard">
-                        Student View
-                    </a>
 
                     <button class="icon-button"
                             id="notification-button"
@@ -182,17 +168,22 @@
 
                     <div class="profile">
                         <div class="profile-copy">
-                            <strong>Demo Staff</strong>
-                            <span>STAFF001</span>
+                            <strong>{{ user.full_name }}</strong>
+                            <span>{{ user.university_id }}</span>
                         </div>
 
                         <div class="avatar">DS</div>
                     </div>
 
-                    <button class="logout-button">
-                        <i class="ph ph-sign-out"></i>
-                        Log Out
-                    </button>
+                    <form action="/logout" method="post">
+                        <form action="/logout" method="post">
+                            <button class="logout-button"
+                                    type="submit">
+                                <i class="ph ph-sign-out"></i>
+                                Log Out
+                            </button>
+                        </form>
+                    </form>
                 </div>
             </header>
 
@@ -269,18 +260,14 @@
 
                         <div class="panel-body">
                             <div class="search-row">
-                                <input
-                                    class="input"
-                                    id="question-search"
-                                    type="search"
-                                    placeholder="Search questions..."
-                                >
+                                <input class="input"
+                                       id="question-search"
+                                       type="search"
+                                       placeholder="Search questions...">
 
-                                <select
-                                    class="select"
-                                    id="status-filter"
-                                    aria-label="Status filter"
-                                >
+                                <select class="select"
+                                        id="status-filter"
+                                        aria-label="Status filter">
                                     <option value="">All</option>
                                     <option value="open">Open</option>
                                     <option value="assigned">
@@ -293,10 +280,8 @@
                                 </select>
                             </div>
 
-                            <div
-                                class="question-list"
-                                id="question-list"
-                            >
+                            <div class="question-list"
+                                 id="question-list">
                                 <div class="empty-state">
                                     Loading questions...
                                 </div>
@@ -331,17 +316,13 @@
                                 </span>
                             </div>
 
-                            <h3
-                                class="section-title"
-                                id="detail-subject"
-                            >
+                            <h3 class="section-title"
+                                id="detail-subject">
                                 Select a question from the list
                             </h3>
 
-                            <div
-                                class="question-message"
-                                id="detail-question"
-                            >
+                            <div class="question-message"
+                                 id="detail-question">
                                 Question content will be displayed here.
                             </div>
 
@@ -349,35 +330,27 @@
                                 Your Expert Answer
                             </h3>
 
-                            <textarea
-                                class="textarea"
-                                id="answer-text"
-                                placeholder="Write your answer..."
-                            ></textarea>
+                            <textarea class="textarea"
+                                      id="answer-text"
+                                      placeholder="Write your answer..."></textarea>
 
                             <div class="editor-actions">
-                                <button
-                                    class="secondary-button"
-                                    id="use-suggestion-button"
-                                >
+                                <button class="secondary-button"
+                                        id="use-suggestion-button">
                                     <i class="ph ph-brain"></i>
                                     Use Suggestion
                                 </button>
 
-                                <button
-                                    class="answer-button"
-                                    id="send-answer-button"
-                                >
+                                <button class="answer-button"
+                                        id="send-answer-button">
                                     <i class="ph ph-paper-plane-tilt"></i>
                                     Send Answer
                                 </button>
                             </div>
 
-                            <div
-                                class="empty-state"
-                                id="answer-message"
-                                hidden
-                            ></div>
+                            <div class="empty-state"
+                                 id="answer-message"
+                                 hidden></div>
                         </div>
                     </article>
 
@@ -421,10 +394,8 @@
                                 <i class="ph ph-files"></i>
                             </header>
 
-                            <div
-                                class="panel-body link-list"
-                                id="similar-questions"
-                            >
+                            <div class="panel-body link-list"
+                                 id="similar-questions">
                                 <div class="empty-state">
                                     Select a question first.
                                 </div>
@@ -439,10 +410,8 @@
                             </header>
 
                             <div class="panel-body">
-                                <div
-                                    class="suggestion"
-                                    id="ai-suggestion"
-                                >
+                                <div class="suggestion"
+                                     id="ai-suggestion">
                                     AI integration will be added after
                                     the official train/test split is
                                     provided.
@@ -455,8 +424,6 @@
         </div>
     </div>
 
-    <script
-        src="{{ url_for('static', path='/js/dashboard.js') }}"
-    ></script>
+    <script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>
 </body>
 </html>

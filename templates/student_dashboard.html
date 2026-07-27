@@ -37,7 +37,7 @@
     >
 </head>
 
-<body>
+<body data-user-id="{{ user.id }}">
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
@@ -82,20 +82,16 @@
                     Student Q&A Center
                 </div>
 
-                <button
-                    class="nav-item active"
-                    data-student-page="questions"
-                >
+                <button class="nav-item active"
+                        data-student-page="questions">
                     <span class="icon">
                         <i class="ph ph-chats"></i>
                     </span>
                     My Questions
                 </button>
 
-                <button
-                    class="nav-item"
-                    data-student-page="new-question"
-                >
+                <button class="nav-item"
+                        data-student-page="new-question">
                     <span class="icon">
                         <i class="ph ph-plus-circle"></i>
                     </span>
@@ -127,28 +123,26 @@
                 </div>
 
                 <div class="topbar-actions">
-                    <a
-                        class="secondary-button"
-                        href="/dashboard"
-                    >
-                        Expert Panel
-                    </a>
+
 
                     <button class="language-button">EN</button>
 
                     <div class="profile">
                         <div class="profile-copy">
-                            <strong>Demo Student</strong>
-                            <span>25000001</span>
+                            <strong>{{ user.full_name }}</strong>
+                            <span>{{ user.university_id }}</span>
                         </div>
 
                         <div class="avatar">DS</div>
                     </div>
 
-                    <button class="logout-button">
-                        <i class="ph ph-sign-out"></i>
-                        Log Out
-                    </button>
+                    <form action="/logout" method="post">
+                        <button class="logout-button"
+                                type="submit">
+                            <i class="ph ph-sign-out"></i>
+                            Log Out
+                        </button>
+                    </form>
                 </div>
             </header>
 
@@ -163,10 +157,8 @@
                         </p>
                     </div>
 
-                    <button
-                        class="primary-button"
-                        id="open-question-form"
-                    >
+                    <button class="primary-button"
+                            id="open-question-form">
                         <i class="ph ph-plus"></i>
                         Ask New Question
                     </button>
@@ -175,10 +167,8 @@
                 <section class="stats-grid student-stats">
                     <article class="stat-card cyan">
                         <div class="stat-label">My Questions</div>
-                        <div
-                            class="stat-value"
-                            id="student-total-count"
-                        >
+                        <div class="stat-value"
+                             id="student-total-count">
                             0
                         </div>
                         <div class="stat-caption">
@@ -190,10 +180,8 @@
                         <div class="stat-label">
                             Awaiting Answer
                         </div>
-                        <div
-                            class="stat-value"
-                            id="student-pending-count"
-                        >
+                        <div class="stat-value"
+                             id="student-pending-count">
                             0
                         </div>
                         <div class="stat-caption">
@@ -203,10 +191,8 @@
 
                     <article class="stat-card green">
                         <div class="stat-label">Answered</div>
-                        <div
-                            class="stat-value"
-                            id="student-answered-count"
-                        >
+                        <div class="stat-value"
+                             id="student-answered-count">
                             0
                         </div>
                         <div class="stat-caption">
@@ -215,10 +201,8 @@
                     </article>
                 </section>
 
-                <section
-                    class="student-view-grid"
-                    id="questions-section"
-                >
+                <section class="student-view-grid"
+                         id="questions-section">
                     <article class="panel">
                         <header class="panel-header">
                             <h2>My Questions</h2>
@@ -227,17 +211,13 @@
                         </header>
 
                         <div class="panel-body">
-                            <input
-                                class="input"
-                                id="student-question-search"
-                                type="search"
-                                placeholder="Search my questions..."
-                            >
+                            <input class="input"
+                                   id="student-question-search"
+                                   type="search"
+                                   placeholder="Search my questions...">
 
-                            <div
-                                class="question-list student-question-list"
-                                id="student-question-list"
-                            >
+                            <div class="question-list student-question-list"
+                                 id="student-question-list">
                                 <div class="empty-state">
                                     Loading your questions...
                                 </div>
@@ -249,10 +229,8 @@
                         <header class="panel-header">
                             <h2>Question and Answer</h2>
 
-                            <span
-                                class="tag"
-                                id="student-detail-status"
-                            >
+                            <span class="tag"
+                                  id="student-detail-status">
                                 Select a question
                             </span>
                         </header>
@@ -261,9 +239,7 @@
                             <div class="detail-meta">
                                 <span>
                                     <strong>Category:</strong>
-                                    <span
-                                        id="student-detail-category"
-                                    >
+                                    <span id="student-detail-category">
                                         -
                                     </span>
                                 </span>
@@ -276,17 +252,13 @@
                                 </span>
                             </div>
 
-                            <h3
-                                class="section-title"
-                                id="student-detail-subject"
-                            >
+                            <h3 class="section-title"
+                                id="student-detail-subject">
                                 Select a question
                             </h3>
 
-                            <div
-                                class="question-message"
-                                id="student-detail-question"
-                            >
+                            <div class="question-message"
+                                 id="student-detail-question">
                                 Your question will be displayed here.
                             </div>
 
@@ -294,53 +266,41 @@
                                 Expert Answer
                             </h3>
 
-                            <div
-                                class="suggestion"
-                                id="student-detail-answer"
-                            >
+                            <div class="suggestion"
+                                 id="student-detail-answer">
                                 The staff answer will be displayed here.
                             </div>
 
-                            <div
-                                class="empty-state"
-                                id="student-page-message"
-                                hidden
-                            ></div>
+                            <div class="empty-state"
+                                 id="student-page-message"
+                                 hidden></div>
                         </div>
                     </article>
                 </section>
 
-                <section
-                    class="panel question-form-panel"
-                    id="new-question-section"
-                    hidden
-                >
+                <section class="panel question-form-panel"
+                         id="new-question-section"
+                         hidden>
                     <header class="panel-header">
                         <h2>Ask New Question</h2>
 
-                        <button
-                            class="secondary-button"
-                            id="close-question-form"
-                        >
+                        <button class="secondary-button"
+                                id="close-question-form">
                             Back to My Questions
                         </button>
                     </header>
 
-                    <form
-                        class="panel-body question-form"
-                        id="new-question-form"
-                    >
+                    <form class="panel-body question-form"
+                          id="new-question-form">
                         <div class="form-grid">
                             <label>
                                 <span class="field-label">
                                     Category
                                 </span>
 
-                                <select
-                                    class="select"
-                                    id="new-question-category"
-                                    required
-                                >
+                                <select class="select"
+                                        id="new-question-category"
+                                        required>
                                     <option value="">
                                         Select a category
                                     </option>
@@ -352,11 +312,9 @@
                                     Language
                                 </span>
 
-                                <select
-                                    class="select"
-                                    id="new-question-language"
-                                    required
-                                >
+                                <select class="select"
+                                        id="new-question-language"
+                                        required>
                                     <option value="tr">Turkish</option>
                                     <option value="en">English</option>
                                 </select>
@@ -366,15 +324,13 @@
                         <label>
                             <span class="field-label">Subject</span>
 
-                            <input
-                                class="input"
-                                id="new-question-subject"
-                                type="text"
-                                minlength="3"
-                                maxlength="200"
-                                required
-                                placeholder="Briefly summarize your question"
-                            >
+                            <input class="input"
+                                   id="new-question-subject"
+                                   type="text"
+                                   minlength="3"
+                                   maxlength="200"
+                                   required
+                                   placeholder="Briefly summarize your question">
                         </label>
 
                         <label>
@@ -382,39 +338,31 @@
                                 Your Question
                             </span>
 
-                            <textarea
-                                class="textarea"
-                                id="new-question-text"
-                                minlength="5"
-                                required
-                                placeholder="Write your question in detail..."
-                            ></textarea>
+                            <textarea class="textarea"
+                                      id="new-question-text"
+                                      minlength="5"
+                                      required
+                                      placeholder="Write your question in detail..."></textarea>
                         </label>
 
                         <div class="editor-actions">
-                            <button
-                                class="primary-button"
-                                type="submit"
-                                id="submit-question-button"
-                            >
+                            <button class="primary-button"
+                                    type="submit"
+                                    id="submit-question-button">
                                 <i class="ph ph-paper-plane-tilt"></i>
                                 Send Question
                             </button>
                         </div>
 
-                        <div
-                            class="empty-state"
-                            id="form-message"
-                            hidden
-                        ></div>
+                        <div class="empty-state"
+                             id="form-message"
+                             hidden></div>
                     </form>
                 </section>
             </main>
         </div>
     </div>
 
-    <script
-        src="{{ url_for('static', path='/js/student_dashboard.js') }}"
-    ></script>
+    <script src="{{ url_for('static', path='/js/student_dashboard.js') }}"></script>
 </body>
 </html>

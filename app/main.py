@@ -1,18 +1,38 @@
 from pathlib import Path
+import os
+import bcrypt
 import sqlite3
+from dotenv import load_dotenv
+from fastapi.responses import RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 
 project_folder = Path(__file__).resolve().parent.parent
+load_dotenv(project_folder / ".env")
+
+session_secret = os.getenv("SESSION_SECRET")
+
+if not session_secret:
+    raise RuntimeError(
+        "SESSION_SECRET environment variable is required."
+    )
 database_path = project_folder / "database" / "dau_chatbot.db"
 
 app = FastAPI(
     title="DAU Student Support API",
     description="Backend API for the DAU student support system.",
     version="1.0.0",
+)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=session_secret,
+    same_site="lax",
+    https_only=False,
+    max_age=3600,
 )
 templates = Jinja2Templates(
     directory=str(project_folder / "templates")
@@ -25,7 +45,28 @@ app.mount(
     ),
     name="static",
 )
+def require_session_user(
+    request: Request,
+    allowed_roles: tuple[str, ...] | None = None,
+) -> dict:
+    user = request.session.get("user")
 
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required.",
+        )
+
+    if (
+        allowed_roles is not None
+        and user["role"] not in allowed_roles
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission for this action.",
+        )
+
+    return user
 @app.get("/")
 def root():
     return {
@@ -45,7 +86,11 @@ def health_check():
 
 
 @app.get("/stats")
-def database_statistics():
+def database_statistics(request: Request):
+    require_session_user(
+        request,
+        allowed_roles=("staff", "admin"),
+    )
     with sqlite3.connect(database_path) as connection:
         cursor = connection.cursor()
 
@@ -70,7 +115,11 @@ def database_statistics():
         "languages": language_count,
     }
 @app.get("/categories")
-def list_categories():
+def list_categories(request: Request):
+    require_session_user(
+        request,
+        allowed_roles=("student", "staff", "admin"),
+    )
     with sqlite3.connect(database_path) as connection:
         cursor = connection.cursor()
 
@@ -94,12 +143,18 @@ def list_categories():
     ]
 @app.get("/knowledge")
 def list_knowledge_entries(
+    request: Request,
     language: str | None = None,
     category_id: int | None = None,
     search: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ):
+    require_session_user(
+        request,
+        allowed_roles=("student", "staff", "admin"),
+    )
+
     limit = min(max(limit, 1), 100)
     offset = max(offset, 0)
 
@@ -200,7 +255,14 @@ def list_knowledge_entries(
         "items": items,
     }
 @app.get("/knowledge/{entry_id}")
-def get_knowledge_entry(entry_id: int):
+def get_knowledge_entry(
+    request: Request,
+    entry_id: int,
+):
+    require_session_user(
+        request,
+        allowed_roles=("student", "staff", "admin"),
+    )
     with sqlite3.connect(database_path) as connection:
         cursor = connection.cursor()
 
@@ -257,7 +319,20 @@ class QuestionCreate(BaseModel):
 
 
 @app.post("/questions", status_code=201)
-def create_question(question: QuestionCreate):
+def create_question(
+    request: Request,
+    question: QuestionCreate,
+):
+    user = require_session_user(
+        request,
+        allowed_roles=("student",),
+    )
+
+    if question.student_id != user["id"]:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only submit questions for your own account.",
+        )
     with sqlite3.connect(database_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         cursor = connection.cursor()
@@ -345,10 +420,16 @@ def create_question(question: QuestionCreate):
 
 @app.get("/questions")
 def list_questions(
+    request: Request,
     status: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ):
+    require_session_user(
+        request,
+        allowed_roles=("staff", "admin"),
+    )
+
     limit = min(max(limit, 1), 100)
     offset = max(offset, 0)
 
@@ -412,9 +493,23 @@ class QuestionAssign(BaseModel):
 
 @app.patch("/questions/{question_id}/assign")
 def assign_question(
+    request: Request,
     question_id: int,
     assignment: QuestionAssign,
 ):
+    user = require_session_user(
+        request,
+        allowed_roles=("staff", "admin"),
+    )
+
+    if (
+        user["role"] == "staff"
+        and assignment.staff_id != user["id"]
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Staff can only assign questions to themselves.",
+        )
     with sqlite3.connect(database_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         cursor = connection.cursor()
@@ -494,9 +589,23 @@ class AnswerCreate(BaseModel):
     status_code=201,
 )
 def answer_question(
+    request: Request,
     question_id: int,
     answer: AnswerCreate,
 ):
+    user = require_session_user(
+        request,
+        allowed_roles=("staff", "admin"),
+    )
+
+    if (
+        user["role"] == "staff"
+        and answer.staff_id != user["id"]
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Staff can only submit answers as themselves.",
+        )
     with sqlite3.connect(database_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         cursor = connection.cursor()
@@ -590,7 +699,37 @@ def answer_question(
         "status": "answered",
     }
 @app.get("/questions/{question_id}")
-def get_question_detail(question_id: int):
+def get_question_detail(
+    request: Request,
+    question_id: int,
+):
+    user = require_session_user(
+        request,
+        allowed_roles=("student", "staff", "admin"),
+    )
+
+    if user["role"] == "student":
+        with sqlite3.connect(database_path) as connection:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT 1
+                FROM questions
+                WHERE id = ?
+                  AND student_id = ?
+                """,
+                (
+                    question_id,
+                    user["id"],
+                ),
+            )
+
+            if cursor.fetchone() is None:
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only view your own questions.",
+                )
     with sqlite3.connect(database_path) as connection:
         cursor = connection.cursor()
 
@@ -680,13 +819,50 @@ def get_question_detail(question_id: int):
     }
 @app.get("/dashboard", include_in_schema=False)
 def dashboard_page(request: Request):
+    user = request.session.get("user")
+
+    if not user:
+        return RedirectResponse(
+            url="/login",
+            status_code=303,
+        )
+
+    if user["role"] not in ("staff", "admin"):
+        return RedirectResponse(
+            url=dashboard_for_role(user["role"]),
+            status_code=303,
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard.html",
+        context={
+            "user": user,
+        },
+    )
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
         context={},
     )
 @app.get("/students/{student_id}/questions")
-def list_student_questions(student_id: int):
+def list_student_questions(
+    request: Request,
+    student_id: int,
+):
+    user = require_session_user(
+        request,
+        allowed_roles=("student", "staff", "admin"),
+    )
+
+    if (
+        user["role"] == "student"
+        and student_id != user["id"]
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You can only view your own questions.",
+        )
     with sqlite3.connect(database_path) as connection:
         cursor = connection.cursor()
 
@@ -784,9 +960,254 @@ def list_student_questions(student_id: int):
     "/student-dashboard",
     include_in_schema=False,
 )
+@app.get(
+    "/student-dashboard",
+    include_in_schema=False,
+)
 def student_dashboard_page(request: Request):
+    user = request.session.get("user")
+
+    if not user:
+        return RedirectResponse(
+            url="/login",
+            status_code=303,
+        )
+
+    if user["role"] != "student":
+        return RedirectResponse(
+            url=dashboard_for_role(user["role"]),
+            status_code=303,
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="student_dashboard.html",
+        context={
+            "user": user,
+        },
+    )
     return templates.TemplateResponse(
         request=request,
         name="student_dashboard.html",
         context={},
     )
+def dashboard_for_role(role_name: str) -> str:
+    destinations = {
+    "student": "/student-dashboard",
+    "staff": "/dashboard",
+    "admin": "/admin-dashboard",
+}
+
+    return destinations.get(role_name, "/login")
+
+
+@app.get("/login", include_in_schema=False)
+def login_page(request: Request):
+    user = request.session.get("user")
+
+    if user:
+        return RedirectResponse(
+            url=dashboard_for_role(user["role"]),
+            status_code=303,
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={
+            "error": None,
+        },
+    )
+
+
+@app.post("/login", include_in_schema=False)
+def login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+):
+    with sqlite3.connect(database_path) as connection:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                users.id,
+                users.full_name,
+                users.email,
+                users.university_id,
+                users.password_hash,
+                roles.name
+            FROM users
+            JOIN roles
+                ON users.role_id = roles.id
+            WHERE lower(users.email) = lower(?)
+              AND users.is_active = 1
+            """,
+            (email.strip(),),
+        )
+
+        user = cursor.fetchone()
+
+    password_is_valid = (
+        user is not None
+        and bcrypt.checkpw(
+            password.encode("utf-8"),
+            user[4].encode("utf-8"),
+        )
+    )
+
+    if not password_is_valid:
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={
+                "error": "Invalid email or password.",
+            },
+            status_code=401,
+        )
+
+    request.session.clear()
+
+    request.session["user"] = {
+    "id": user[0],
+    "full_name": user[1],
+    "email": user[2],
+    "university_id": user[3],
+    "role": user[5],
+}
+
+    return RedirectResponse(
+        url=dashboard_for_role(user[5]),
+        status_code=303,
+    )
+
+
+@app.post("/logout", include_in_schema=False)
+def logout(request: Request):
+    request.session.clear()
+
+    return RedirectResponse(
+        url="/login",
+        status_code=303,
+    )
+@app.get("/me")
+def current_user(request: Request):
+    user = require_session_user(request)
+
+    return {
+        "id": user["id"],
+        "full_name": user["full_name"],
+        "email": user["email"],
+        "university_id": user["university_id"],
+        "role": user["role"],
+    }
+@app.get(
+    "/admin-dashboard",
+    include_in_schema=False,
+)
+def admin_dashboard_page(request: Request):
+    user = require_session_user(
+        request,
+        allowed_roles=("admin",),
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_dashboard.html",
+        context={
+            "user": user,
+        },
+    )
+@app.get("/admin/overview")
+def admin_overview(request: Request):
+    require_session_user(
+        request,
+        allowed_roles=("admin",),
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        cursor = connection.cursor()
+
+        cursor.execute("SELECT COUNT(*) FROM users")
+        user_count = cursor.fetchone()[0]
+
+        cursor.execute(
+            """
+            SELECT
+                SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN status = 'answered' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END),
+                COUNT(*)
+            FROM questions
+            """
+        )
+
+        question_counts = cursor.fetchone()
+
+        cursor.execute("SELECT COUNT(*) FROM answers")
+        answer_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM categories")
+        category_count = cursor.fetchone()[0]
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM knowledge_entries"
+        )
+        knowledge_count = cursor.fetchone()[0]
+
+    return {
+        "users": user_count,
+        "questions": {
+            "open": question_counts[0] or 0,
+            "assigned": question_counts[1] or 0,
+            "answered": question_counts[2] or 0,
+            "closed": question_counts[3] or 0,
+            "total": question_counts[4] or 0,
+        },
+        "answers": answer_count,
+        "categories": category_count,
+        "knowledge_entries": knowledge_count,
+    }
+@app.get("/admin/users")
+def admin_users(request: Request):
+    require_session_user(
+        request,
+        allowed_roles=("admin",),
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                users.id,
+                users.university_id,
+                users.full_name,
+                users.email,
+                roles.name,
+                users.is_active,
+                users.created_at
+            FROM users
+            JOIN roles
+                ON users.role_id = roles.id
+            ORDER BY users.id
+            """
+        )
+
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "university_id": row[1],
+            "full_name": row[2],
+            "email": row[3],
+            "role": row[4],
+            "is_active": bool(row[5]),
+            "created_at": row[6],
+        }
+        for row in rows
+    ]
