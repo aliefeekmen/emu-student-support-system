@@ -1,10 +1,10 @@
-# DAU Student Support and Institutional Q&A System
+# EMU Student Support and Institutional Q&A System
 
 This project is developed for the Eastern Mediterranean University summer internship project.
 
-The system stores student questions and official staff answers in a central database. It also provides a web interface and backend API for question management.
+The system stores student questions and official staff answers in a central database. It provides role-based web dashboards and a FastAPI backend for managing student questions.
 
-The system is prepared for future AI-supported answer suggestions.
+The system is also prepared for future AI-supported answer suggestions.
 
 ## Project Goals
 
@@ -12,15 +12,16 @@ The system is prepared for future AI-supported answer suggestions.
 - Normalize category and language information
 - Design a relational database
 - Create an institutional question-answer memory
-- Allow students to submit questions
-- Allow questions to be assigned to staff
+- Allow students to submit and track questions
+- Allow questions to be assigned to staff members
 - Allow staff members to answer questions
-- Develop student and expert dashboards
+- Provide separate student, staff, and administrator dashboards
+- Protect system operations with authentication and authorization
 - Prepare the system for future AI integration
 
 ## Current Phase
 
-Completed work:
+The following work has been completed:
 
 - Dataset exploration
 - Text cleaning and normalization
@@ -31,11 +32,14 @@ Completed work:
 - Database validation
 - FastAPI backend setup
 - Knowledge-base searching and filtering
-- Student question and staff answer flow
-- Expert dashboard
+- Student question and staff answer workflow
+- Session-based authentication
+- Role-based authorization
 - Student dashboard
+- Expert dashboard
+- Administrator dashboard
 - Frontend and backend integration
-- Automated backend and frontend tests
+- Automated API and interface tests
 - Technical documentation
 
 The official train/test split and AI model testing will be added in a later phase.
@@ -48,15 +52,18 @@ The official train/test split and AI model testing will be added in a later phas
 - Normalized categories: 31
 - Missing values after cleaning: 0
 - Fully duplicated rows: 0
+- Duplicated questions after text normalization: 121
 
 Dataset columns:
 
-- ID
-- Soru
-- Cevap
-- Kategori (TR)
-- Kategori (EN)
-- Dil
+- `ID`
+- `Soru`
+- `Cevap`
+- `Kategori (TR)`
+- `Kategori (EN)`
+- `Dil`
+
+Duplicate questions are preserved because different records may contain useful category, language, or answer information. They can be reviewed again when the official train/test split is provided.
 
 ## Technologies
 
@@ -64,27 +71,28 @@ Dataset columns:
 - Pandas
 - FastAPI
 - SQLite
-- SQLAlchemy
 - Uvicorn
 - bcrypt
+- Jinja2
 - HTML
 - CSS
 - JavaScript
-- Jinja2
 - Pytest
 - HTTPX
+- python-dotenv
+- itsdangerous
 
 ## Project Structure
 
 ```text
-dau-chatbot/
+EMU-chatbot/
 |-- app/
 |   `-- main.py
 |-- data/
-|   |-- Dau_chatbot_Raw_dataset.csv
-|   `-- Dau_chatbot_Cleaned_dataset.csv
+|   |-- EMU_chatbot_Raw_dataset.csv
+|   `-- EMU_chatbot_Cleaned_dataset.csv
 |-- database/
-|   `-- dau_chatbot.db
+|   `-- EMU_chatbot.db
 |-- docs/
 |   |-- data_analysis_report.md
 |   `-- database_schema.md
@@ -103,60 +111,117 @@ dau-chatbot/
 |   |-- css/
 |   |   `-- dashboard.css
 |   `-- js/
+|       |-- admin_dashboard.js
 |       |-- dashboard.js
 |       `-- student_dashboard.js
 |-- templates/
+|   |-- admin_dashboard.html
 |   |-- dashboard.html
+|   |-- login.html
 |   `-- student_dashboard.html
 |-- tests/
 |   `-- test_api.py
+|-- .env.example
 |-- .gitignore
 |-- README.md
 `-- requirements.txt
 ```
 
+The dataset files, generated database, virtual environment, and real `.env` file are excluded from Git.
+
 ## Database Tables
 
-- languages
-- categories
-- knowledge_entries
-- roles
-- users
-- questions
-- answers
-- attachments
-- ai_suggestions
+The relational database contains the following tables:
+
+- `languages`
+- `categories`
+- `knowledge_entries`
+- `roles`
+- `users`
+- `questions`
+- `answers`
+- `attachments`
+- `ai_suggestions`
+
+The `knowledge_entries` table stores the cleaned institutional Q&A dataset.
+
+The `questions` and `answers` tables support the live student and staff workflow.
+
+The `ai_suggestions` table is prepared for future AI-supported answer generation.
 
 ## Installation
 
-Create a virtual environment:
+### 1. Clone the repository
+
+```bat
+git clone https://github.com/aliefeekmen/EMU-student-support-system.git
+cd EMU-student-support-system
+```
+
+### 2. Create a virtual environment
 
 ```bat
 python -m venv venv
 ```
 
-Activate it on Windows:
+### 3. Activate the virtual environment on Windows
 
 ```bat
 venv\Scripts\activate
 ```
 
-Install the required packages:
+### 4. Install the required packages
 
 ```bat
 python -m pip install -r requirements.txt
 ```
 
-Place the raw dataset in the `data` directory with this name:
+### 5. Create the environment file
 
-```text
-Dau_chatbot_Raw_dataset.csv
+Copy the example file:
+
+```bat
+copy .env.example .env
 ```
 
-Clean the dataset:
+Open the new file:
+
+```bat
+notepad .env
+```
+
+Replace the example value with a long and private random value:
+
+```env
+SESSION_SECRET=replace-with-your-own-long-random-secret
+```
+
+The real `.env` file must not be uploaded to GitHub.
+
+## Dataset and Database Setup
+
+Place the raw dataset inside the `data` directory with the following name:
+
+```text
+EMU_chatbot_Raw_dataset.csv
+```
+
+Explore the raw dataset:
+
+```bat
+python scripts\explore_data.py
+```
+
+Clean and normalize the dataset:
 
 ```bat
 python scripts\clean_data.py
+```
+
+Validate the cleaned dataset:
+
+```bat
+python scripts\validate_data.py
 ```
 
 Create the database:
@@ -191,70 +256,115 @@ Start the FastAPI development server:
 python -m uvicorn app.main:app --reload
 ```
 
+Open the login page:
+
+```text
+http://127.0.0.1:8000/login
+```
+
 Swagger API documentation:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-Expert dashboard:
+The server must remain running while the website or API is being used.
 
-```text
-http://127.0.0.1:8000/dashboard
-```
+## User Roles
 
-Student dashboard:
+### Student
 
-```text
-http://127.0.0.1:8000/student-dashboard
-```
+A student can:
 
-## Expert Dashboard
+- Log in to the student dashboard
+- Submit a new question
+- Select a question category and language
+- View their own questions
+- Search their own questions
+- View question status
+- View official staff answers
 
-The expert dashboard supports:
+### Staff
 
-- Viewing incoming questions
-- Searching and filtering questions
-- Viewing question details
-- Viewing student information
-- Searching similar institutional records
-- Assigning open questions to staff
-- Sending staff answers
-- Viewing answered questions
-- Switching to the student dashboard
+A staff member can:
 
-## Student Dashboard
+- Log in to the expert dashboard
+- View incoming student questions
+- Search and filter questions
+- View question and student information
+- Search similar institutional Q&A records
+- Assign a question to themselves
+- Answer assigned questions
+- View answered questions
 
-The student dashboard supports:
+### Administrator
 
-- Viewing personal questions
-- Viewing question status
-- Viewing staff answers
-- Searching personal questions
-- Viewing question statistics
-- Selecting real database categories
-- Submitting new questions
-- Switching to the expert dashboard
+An administrator can:
+
+- Log in to the administrator dashboard
+- View system statistics
+- View user information
+- View question status counts
+- View the number of answers
+- View category and knowledge-base statistics
+
+Users cannot access dashboards or operations that do not belong to their roles.
+
+## Main Pages
+
+- `GET /login` - Open the login page
+- `GET /student-dashboard` - Open the student dashboard
+- `GET /dashboard` - Open the expert dashboard
+- `GET /admin-dashboard` - Open the administrator dashboard
+- `GET /docs` - Open the Swagger API documentation
 
 ## Main API Endpoints
 
-- `GET /health` - Check API and database connection
+### Authentication
+
+- `POST /login` - Authenticate a user
+- `POST /logout` - End the current session
+- `GET /me` - View the authenticated user
+
+### Knowledge Base
+
+- `GET /health` - Check the API and database connection
 - `GET /stats` - View database statistics
 - `GET /categories` - List categories
-- `GET /knowledge` - Search and filter Q&A records
-- `GET /knowledge/{entry_id}` - Get one Q&A record
+- `GET /knowledge` - Search and filter institutional Q&A records
+- `GET /knowledge/{entry_id}` - View one institutional Q&A record
+
+### Question Management
+
 - `POST /questions` - Submit a student question
-- `GET /questions` - List student questions
+- `GET /questions` - List student questions for staff
 - `GET /questions/{question_id}` - View question details
 - `PATCH /questions/{question_id}/assign` - Assign a question
 - `POST /questions/{question_id}/answers` - Answer a question
 - `GET /students/{student_id}/questions` - List one student's questions
-- `GET /dashboard` - Open the expert dashboard
-- `GET /student-dashboard` - Open the student dashboard
+
+### Administration
+
+- `GET /admin/overview` - View administrator statistics
+- `GET /admin/users` - List system users
+
+Protected endpoints require a valid session and the correct user role.
+
+## Demo Accounts
+
+The project contains the following development-only accounts:
+
+| Role | Email | Password |
+|---|---|---|
+| Student | `student@demo.local` | `Student123!` |
+| Staff | `staff@demo.local` | `Staff123!` |
+| Admin | `admin@demo.local` | `Admin123!` |
+
+These accounts are provided only for local development and demonstration. They must not be used in a production environment.
 
 ## Automated Tests
 
-Run the tests:
+Run the complete test suite:
 
 ```bat
 python -m pytest -v
@@ -263,79 +373,51 @@ python -m pytest -v
 Current result:
 
 ```text
-9 passed
+16 passed
 ```
 
 The tests cover:
 
-- API health
+- API health and database connection
 - Database statistics
 - Categories
 - Knowledge-base searching
 - Existing and missing knowledge records
-- Expert dashboard page
-- Student dashboard page
-- Static CSS delivery
+- Authentication
+- Role-based authorization
+- Student dashboard
+- Expert dashboard
+- Administrator dashboard
+- Administrator API endpoints
+- Static file delivery
+- Unauthorized access restrictions
 
-## Demo Accounts
+## Security Notes
 
-The project contains development-only demo accounts:
-
-- Demo Student
-- Demo Staff
-- Demo Admin
-
-These accounts and their passwords must not be used in a production environment.
+- Passwords are stored as hashes, not plain text.
+- Session data is protected with `SESSION_SECRET`.
+- Role checks protect student, staff, and administrator operations.
+- The real `.env` file is excluded from Git.
+- Demo accounts are for local development only.
+- HTTPS and secure cookies must be enabled before production deployment.
 
 ## Future Work
 
 - Receive the official train/test split
 - Integrate the selected AI model
-- Generate AI answer suggestions
+- Generate AI-supported answer suggestions
 - Compare model performance
-- Add secure login and authorization
-- Add the administrator dashboard
 - Add file attachment upload
 - Complete Turkish and English interface switching
-- Add automatic category classification
+- Add automatic question category classification
+- Add password reset and account management
+- Add audit logs
+- Improve production security settings
 - Move from SQLite to PostgreSQL if required
+- Deploy the system to a production server
 
-## Authentication and User Roles
+## Repository
 
-The system includes session-based authentication with three user roles:
+GitHub repository:
 
-- Student: creates questions and views their own questions.
-- Staff: views, assigns, and answers student questions.
-- Admin: views the administration dashboard and system statistics.
-
-## Local Environment Setup
-
-Create a `.env` file in the project root and add:
-
-```env
-SESSION_SECRET=your-long-random-secret-key
-
-Install the dependencies and start the application:
-
-python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --reload
-
-Open the application at:
-
-http://127.0.0.1:8000/login
-
-Demo Accounts
-Role	Email	Password
-Student	student@demo.local	Student123!
-Staff	staff@demo.local	Staff123!
-Admin	admin@demo.local	Admin123!
-
-These accounts are provided only for local development and demonstration.
-
-Testing
-
-Run the automated tests with:
-
-python -m pytest -v
-
-The current test suite contains 16 tests for the API, authentication, role permissions, and dashboard pages.
+https://github.com/aliefeekmen/EMU-student-support-system
