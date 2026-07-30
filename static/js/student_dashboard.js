@@ -1,4 +1,6 @@
-const STUDENT_ID = 1;
+const STUDENT_ID = Number(
+    document.body.dataset.userId
+);
 
 const state = {
     questions: [],
@@ -55,6 +57,10 @@ const elements = {
         "#student-detail-question"
     ),
 
+    detailAttachments: document.querySelector(
+        "#student-detail-attachments"
+    ),
+
     detailAnswer: document.querySelector(
         "#student-detail-answer"
     ),
@@ -89,6 +95,10 @@ const elements = {
 
     questionInput: document.querySelector(
         "#new-question-text"
+    ),
+
+    attachmentInput: document.querySelector(
+        "#new-question-attachment"
     ),
 
     submitButton: document.querySelector(
@@ -148,12 +158,22 @@ function statusClass(status) {
 }
 
 async function apiRequest(url, options = {}) {
+    const headers = {
+        ...(options.headers || {}),
+    };
+
+    if (
+        options.body
+        && !(options.body instanceof FormData)
+    ) {
+        headers["Content-Type"] =
+            headers["Content-Type"]
+            || "application/json";
+    }
+
     const response = await fetch(url, {
-        headers: {
-            "Content-Type": "application/json",
-            ...(options.headers || {}),
-        },
         ...options,
+        headers,
     });
 
     let data = null;
@@ -176,7 +196,9 @@ async function apiRequest(url, options = {}) {
 
 async function loadCategories() {
     try {
-        const categories = await apiRequest("/categories");
+        const categories = await apiRequest(
+            "/categories"
+        );
 
         elements.categorySelect.innerHTML = `
             <option value="">
@@ -185,12 +207,15 @@ async function loadCategories() {
         `;
 
         categories.forEach((category) => {
-            const option = document.createElement("option");
+            const option =
+                document.createElement("option");
 
             option.value = category.id;
             option.textContent = category.name_en;
 
-            elements.categorySelect.appendChild(option);
+            elements.categorySelect.appendChild(
+                option
+            );
         });
     } catch (error) {
         showFormMessage(error.message, true);
@@ -219,17 +244,21 @@ async function loadStudentQuestions(
             return;
         }
 
-        const selectedExists = state.questions.some(
-            (question) =>
-                question.id === state.selectedQuestionId
-        );
+        const selectedExists =
+            state.questions.some(
+                (question) =>
+                    question.id
+                    === state.selectedQuestionId
+            );
 
         if (selectNewest || !selectedExists) {
             state.selectedQuestionId =
                 state.questions[0].id;
         }
 
-        selectQuestion(state.selectedQuestionId);
+        selectQuestion(
+            state.selectedQuestionId
+        );
     } catch (error) {
         elements.questionList.innerHTML = `
             <div class="empty-state">
@@ -256,7 +285,8 @@ function updateStatistics() {
 
     elements.totalCount.textContent = total;
     elements.pendingCount.textContent = pending;
-    elements.answeredCount.textContent = answered;
+    elements.answeredCount.textContent =
+        answered;
 }
 
 function filteredQuestions() {
@@ -268,18 +298,22 @@ function filteredQuestions() {
         return state.questions;
     }
 
-    return state.questions.filter((question) => {
-        const searchableText = [
-            question.subject,
-            question.question_text,
-            question.category.name_en,
-            question.category.name_tr,
-        ]
-            .join(" ")
-            .toLowerCase();
+    return state.questions.filter(
+        (question) => {
+            const searchableText = [
+                question.subject,
+                question.question_text,
+                question.category.name_en,
+                question.category.name_tr,
+            ]
+                .join(" ")
+                .toLowerCase();
 
-        return searchableText.includes(searchValue);
-    });
+            return searchableText.includes(
+                searchValue
+            );
+        }
+    );
 }
 
 function renderQuestions() {
@@ -298,12 +332,17 @@ function renderQuestions() {
     elements.questionList.innerHTML = questions
         .map((question) => {
             const selected =
-                question.id === state.selectedQuestionId;
+                question.id
+                === state.selectedQuestionId;
 
             return `
                 <article
-                    class="question-card ${selected ? "selected" : ""}"
-                    data-student-question-id="${question.id}"
+                    class="question-card ${
+                        selected ? "selected" : ""
+                    }"
+                    data-student-question-id="${
+                        question.id
+                    }"
                     tabindex="0"
                 >
                     <div class="question-meta">
@@ -315,17 +354,23 @@ function renderQuestions() {
 
                         <span>
                             ${escapeHtml(
-                                formatDate(question.created_at)
+                                formatDate(
+                                    question.created_at
+                                )
                             )}
                         </span>
                     </div>
 
                     <div class="question-title">
-                        ${escapeHtml(question.subject)}
+                        ${escapeHtml(
+                            question.subject
+                        )}
                     </div>
 
                     <div class="question-footer">
-                        <span>#Q-${question.id}</span>
+                        <span>
+                            #Q-${question.id}
+                        </span>
 
                         <span
                             class="tag ${statusClass(
@@ -333,7 +378,9 @@ function renderQuestions() {
                             )}"
                         >
                             ${escapeHtml(
-                                statusLabel(question.status)
+                                statusLabel(
+                                    question.status
+                                )
                             )}
                         </span>
                     </div>
@@ -350,7 +397,8 @@ function renderQuestions() {
             const chooseQuestion = () => {
                 selectQuestion(
                     Number(
-                        card.dataset.studentQuestionId
+                        card.dataset
+                            .studentQuestionId
                     )
                 );
             };
@@ -374,6 +422,45 @@ function renderQuestions() {
         });
 }
 
+async function loadQuestionAttachments(
+    questionId
+) {
+    elements.detailAttachments.innerHTML =
+        "Loading attachments...";
+
+    try {
+        const attachments = await apiRequest(
+            `/questions/${questionId}/attachments`
+        );
+
+        if (attachments.length === 0) {
+            elements.detailAttachments.innerHTML =
+                "No attachments are available.";
+
+            return;
+        }
+
+        elements.detailAttachments.innerHTML =
+            attachments
+                .map(
+                    (attachment) => `
+                        <a
+                            class="secondary-button"
+                            href="${attachment.download_url}"
+                        >
+                            <i class="ph ph-download-simple"></i>
+                            ${escapeHtml(
+                        attachment.file_name
+                    )}
+                        </a>
+                    `
+                )
+                .join("");
+    } catch (error) {
+        elements.detailAttachments.innerHTML =
+            escapeHtml(error.message);
+    }
+}
 function selectQuestion(questionId) {
     const question = state.questions.find(
         (item) => item.id === questionId
@@ -386,6 +473,7 @@ function selectQuestion(questionId) {
 
     state.selectedQuestionId = questionId;
     renderQuestions();
+    loadQuestionAttachments(questionId);
 
     elements.detailStatus.textContent =
         statusLabel(question.status);
@@ -431,6 +519,9 @@ function clearQuestionDetail() {
     elements.detailQuestion.textContent =
         "Submit your first question to see it here.";
 
+    elements.detailAttachments.textContent =
+        "No attachments are available.";
+
     elements.detailAnswer.textContent =
         "No answer is available.";
 }
@@ -457,7 +548,8 @@ function setActiveNavigation(pageName) {
         .forEach((button) => {
             button.classList.toggle(
                 "active",
-                button.dataset.studentPage === pageName
+                button.dataset.studentPage
+                    === pageName
             );
         });
 }
@@ -478,6 +570,21 @@ async function submitQuestion(event) {
     const questionText =
         elements.questionInput.value.trim();
 
+    const attachment =
+        elements.attachmentInput.files[0];
+
+    if (
+        attachment
+        && attachment.size > 5 * 1024 * 1024
+    ) {
+        showFormMessage(
+            "The attachment cannot exceed 5 MB.",
+            true
+        );
+
+        return;
+    }
+
     if (!categoryId) {
         showFormMessage(
             "Please select a category.",
@@ -489,7 +596,9 @@ async function submitQuestion(event) {
 
     elements.submitButton.disabled = true;
 
-    showFormMessage("Sending your question...");
+    showFormMessage(
+        "Sending your question..."
+    );
 
     try {
         const result = await apiRequest(
@@ -508,17 +617,44 @@ async function submitQuestion(event) {
 
         state.selectedQuestionId = result.id;
 
+        if (attachment) {
+            showFormMessage(
+                "Question created. Uploading attachment..."
+            );
+
+            const attachmentData =
+                new FormData();
+
+            attachmentData.append(
+                "file",
+                attachment
+            );
+
+            await apiRequest(
+                `/questions/${result.id}/attachments`,
+                {
+                    method: "POST",
+                    body: attachmentData,
+                }
+            );
+        }
+
         elements.questionForm.reset();
         elements.languageSelect.value = "tr";
 
         showFormMessage(
-            "Question submitted successfully."
+            attachment
+                ? "Question and attachment submitted successfully."
+                : "Question submitted successfully."
         );
 
         await loadStudentQuestions(true);
         showQuestionPage();
     } catch (error) {
-        showFormMessage(error.message, true);
+        showFormMessage(
+            error.message,
+            true
+        );
     } finally {
         elements.submitButton.disabled = false;
     }
@@ -556,16 +692,19 @@ elements.closeFormButton.addEventListener(
 document
     .querySelectorAll("[data-student-page]")
     .forEach((button) => {
-        button.addEventListener("click", () => {
-            if (
-                button.dataset.studentPage
-                === "new-question"
-            ) {
-                showQuestionForm();
-            } else {
-                showQuestionPage();
+        button.addEventListener(
+            "click",
+            () => {
+                if (
+                    button.dataset.studentPage
+                    === "new-question"
+                ) {
+                    showQuestionForm();
+                } else {
+                    showQuestionPage();
+                }
             }
-        });
+        );
     });
 
 elements.questionForm.addEventListener(

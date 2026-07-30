@@ -1,4 +1,6 @@
-const STAFF_ID = 2;
+const STAFF_ID = Number(
+    document.body.dataset.userId
+);
 
 const state = {
     questions: [],
@@ -24,7 +26,10 @@ const elements = {
     detailLanguage: document.querySelector("#detail-language"),
     detailDate: document.querySelector("#detail-date"),
     detailSubject: document.querySelector("#detail-subject"),
-    detailQuestion: document.querySelector("#detail-question"),
+        detailQuestion: document.querySelector("#detail-question"),
+    detailAttachments: document.querySelector(
+        "#detail-attachments"
+    ),
 
     studentName: document.querySelector("#student-name"),
     studentNumber: document.querySelector("#student-number"),
@@ -266,7 +271,45 @@ function renderQuestionList() {
             });
         });
 }
+async function loadQuestionAttachments(
+    questionId
+) {
+    elements.detailAttachments.innerHTML =
+        "Loading attachments...";
 
+    try {
+        const attachments = await apiRequest(
+            `/questions/${questionId}/attachments`
+        );
+
+        if (attachments.length === 0) {
+            elements.detailAttachments.innerHTML =
+                "No attachments are available.";
+
+            return;
+        }
+
+        elements.detailAttachments.innerHTML =
+            attachments
+                .map(
+                    (attachment) => `
+                        <a
+                            class="secondary-button"
+                            href="${attachment.download_url}"
+                        >
+                            <i class="ph ph-download-simple"></i>
+                            ${escapeHtml(
+                        attachment.file_name
+                    )}
+                        </a>
+                    `
+                )
+                .join("");
+    } catch (error) {
+        elements.detailAttachments.innerHTML =
+            escapeHtml(error.message);
+    }
+}
 async function selectQuestion(questionId) {
     state.selectedQuestionId = questionId;
     renderQuestionList();
@@ -277,9 +320,13 @@ async function selectQuestion(questionId) {
             `/questions/${questionId}`
         );
 
-        state.selectedQuestion = question;
+                state.selectedQuestion = question;
         displayQuestion(question);
-        await loadSimilarQuestions(question);
+
+        await Promise.all([
+            loadSimilarQuestions(question),
+            loadQuestionAttachments(question.id),
+        ]);
     } catch (error) {
         showMessage(error.message, true);
     }

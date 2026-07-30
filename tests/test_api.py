@@ -1,4 +1,5 @@
 import os
+import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,7 +10,7 @@ os.environ.setdefault(
     "test-only-session-secret",
 )
 
-from app.main import app
+from app.main import app, database_path
 
 
 client = TestClient(app)
@@ -248,3 +249,125 @@ def test_student_redirected_from_expert_dashboard():
 
     assert response.status_code in (302, 303, 307)
     assert response.headers["location"] == "/student-dashboard"
+def test_student_can_upload_question_attachment():
+    login_as_student()
+
+    question_response = client.post(
+        "/questions",
+        json={
+            "student_id": 1,
+            "category_id": 15,
+            "language": "tr",
+            "subject": "Attachment test question",
+            "question_text": (
+                "This question is created for the attachment test."
+            ),
+        },
+    )
+
+    assert question_response.status_code == 201
+
+    question_id = question_response.json()["id"]
+    attachment_id = None
+
+    try:
+        response = client.post(
+            f"/questions/{question_id}/attachments",
+            files={
+                "file": (
+                    "test_document.pdf",
+                    b"%PDF-1.4 test document",
+                    "application/pdf",
+                )
+            },
+        )
+        data = response.json()
+
+        assert response.status_code == 201
+        assert data["question_id"] == question_id
+        assert data["file_name"] == "test_document.pdf"
+        assert data["mime_type"] == "application/pdf"
+        assert data["size"] > 0
+
+        attachment_id = data["id"]
+
+        list_response = client.get(
+            f"/questions/{question_id}/attachments"
+        )
+        attachment_list = list_response.json()
+
+        assert list_response.status_code == 200
+        assert len(attachment_list) == 1
+        assert attachment_list[0]["id"] == attachment_id
+        assert (
+            attachment_list[0]["file_name"]
+            == "test_document.pdf"
+        )
+
+        download_response = client.get(
+            f"/attachments/{attachment_id}/download"
+        )
+
+        assert download_response.status_code == 200
+        assert (
+            download_response.content
+            == b"%PDF-1.4 test document"
+        )
+        assert (
+            "test_document.pdf"
+            in download_response.headers[
+                "content-disposition"
+            ]
+        )
+    finally:
+        with sqlite3.connect(database_path) as connection:
+            if attachment_id is not None:
+                attachment_record = connection.execute(
+                    """
+                    SELECT file_path
+                    FROM attachments
+                    WHERE id = ?
+                    """,
+                    (attachment_id,),
+                ).fetchone()
+
+                if attachment_record is not None:
+                    stored_path = (
+                        database_path.parent.parent
+                        / attachment_record[0]
+                    )
+                    stored_path.unlink(missing_ok=True)
+
+                connection.execute(
+                    """
+                    DELETE FROM attachments
+                    WHERE id = ?
+                    """,
+                    (attachment_id,),
+                )
+
+            connection.execute(
+                """
+                DELETE FROM questions
+                WHERE id = ?
+                """,
+                (question_id,),
+            )
+            connection.commit()
+
+
+def test_staff_cannot_upload_question_attachment():
+    login_as_staff()
+
+    response = client.post(
+        "/questions/1/attachments",
+        files={
+            "file": (
+                "test_document.pdf",
+                b"%PDF-1.4 test document",
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 403

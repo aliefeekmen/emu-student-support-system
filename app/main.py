@@ -1,12 +1,20 @@
 from pathlib import Path
+from uuid import uuid4
 import os
 import bcrypt
 import sqlite3
 from dotenv import load_dotenv
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -21,10 +29,12 @@ if not session_secret:
         "SESSION_SECRET environment variable is required."
     )
 database_path = project_folder / "database" / "dau_chatbot.db"
+uploads_path = project_folder / "uploads"
+uploads_path.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
-    title="DAU Student Support API",
-    description="Backend API for the DAU student support system.",
+    title="EMU Student Support API",
+    description="Backend API for the EMU student support system.",
     version="1.0.0",
 )
 app.add_middleware(
@@ -1211,3 +1221,247 @@ def admin_users(request: Request):
         }
         for row in rows
     ]
+@app.post(
+    "/questions/{question_id}/attachments",
+    status_code=201,
+)
+async def upload_question_attachment(
+    question_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+):
+    user = require_session_user(
+        request,
+        allowed_roles=("student",),
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        question_record = connection.execute(
+            """
+            SELECT id, student_id
+            FROM questions
+            WHERE id = ?
+            """,
+            (question_id,),
+        ).fetchone()
+
+    if question_record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found.",
+        )
+
+    if question_record[1] != user["id"]:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only add attachments to your own questions.",
+        )
+
+    if not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="A file name is required.",
+        )
+
+    original_name = Path(file.filename).name
+    file_extension = Path(original_name).suffix.lower()
+
+    allowed_extensions = {
+        ".pdf",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".doc",
+        ".docx",
+    }
+
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type.",
+        )
+
+    maximum_file_size = 5 * 1024 * 1024
+    file_content = await file.read(
+        maximum_file_size + 1
+    )
+    await file.close()
+
+    if len(file_content) > maximum_file_size:
+        raise HTTPException(
+            status_code=400,
+            detail="File size cannot exceed 5 MB.",
+        )
+
+    stored_name = f"{uuid4().hex}{file_extension}"
+    stored_path = uploads_path / stored_name
+    relative_path = f"uploads/{stored_name}"
+
+    stored_path.write_bytes(file_content)
+
+    try:
+        with sqlite3.connect(database_path) as connection:
+            cursor = connection.cursor()
+            cursor.execute(
+                """
+                INSERT INTO attachments (
+                    question_id,
+                    file_name,
+                    file_path,
+                    mime_type
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    question_id,
+                    original_name,
+                    relative_path,
+                    file.content_type,
+                ),
+            )
+            attachment_id = cursor.lastrowid
+            connection.commit()
+    except Exception:
+        stored_path.unlink(missing_ok=True)
+        raise
+
+    return {
+        "id": attachment_id,
+        "question_id": question_id,
+        "file_name": original_name,
+        "mime_type": file.content_type,
+        "size": len(file_content),
+        "message": "Attachment uploaded successfully.",
+    }
+@app.get("/questions/{question_id}/attachments")
+def list_question_attachments(
+    question_id: int,
+    request: Request,
+):
+    user = require_session_user(
+        request,
+        allowed_roles=("student", "staff", "admin"),
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        question_record = connection.execute(
+            """
+            SELECT id, student_id
+            FROM questions
+            WHERE id = ?
+            """,
+            (question_id,),
+        ).fetchone()
+
+        if question_record is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Question not found.",
+            )
+
+        if (
+            user["role"] == "student"
+            and question_record[1] != user["id"]
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only view attachments for your own questions.",
+            )
+
+        attachment_rows = connection.execute(
+            """
+            SELECT
+                id,
+                file_name,
+                mime_type,
+                uploaded_at
+            FROM attachments
+            WHERE question_id = ?
+            ORDER BY uploaded_at DESC, id DESC
+            """,
+            (question_id,),
+        ).fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "question_id": question_id,
+            "file_name": row[1],
+            "mime_type": row[2],
+            "uploaded_at": row[3],
+            "download_url": (
+                f"/attachments/{row[0]}/download"
+            ),
+        }
+        for row in attachment_rows
+    ]
+
+
+@app.get("/attachments/{attachment_id}/download")
+def download_question_attachment(
+    attachment_id: int,
+    request: Request,
+):
+    user = require_session_user(
+        request,
+        allowed_roles=("student", "staff", "admin"),
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        attachment_record = connection.execute(
+            """
+            SELECT
+                attachments.file_name,
+                attachments.file_path,
+                attachments.mime_type,
+                questions.student_id
+            FROM attachments
+            JOIN questions
+                ON questions.id = attachments.question_id
+            WHERE attachments.id = ?
+            """,
+            (attachment_id,),
+        ).fetchone()
+
+    if attachment_record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Attachment not found.",
+        )
+
+    if (
+        user["role"] == "student"
+        and attachment_record[3] != user["id"]
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You can only download attachments from your own questions.",
+        )
+
+    stored_path = (
+        project_folder / attachment_record[1]
+    ).resolve()
+    resolved_uploads_path = uploads_path.resolve()
+
+    if not stored_path.is_relative_to(
+        resolved_uploads_path
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid attachment path.",
+        )
+
+    if not stored_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Attachment file not found.",
+        )
+
+    return FileResponse(
+        path=stored_path,
+        media_type=(
+            attachment_record[2]
+            or "application/octet-stream"
+        ),
+        filename=attachment_record[0],
+    )

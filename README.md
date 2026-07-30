@@ -13,6 +13,7 @@ The system is also prepared for future AI-supported answer suggestions.
 - Design a relational database
 - Create an institutional question-answer memory
 - Allow students to submit and track questions
+- Allow students to upload optional attachments
 - Allow questions to be assigned to staff members
 - Allow staff members to answer questions
 - Provide separate student, staff, and administrator dashboards
@@ -38,6 +39,8 @@ The following work has been completed:
 - Student dashboard
 - Expert dashboard
 - Administrator dashboard
+- Secure attachment upload, listing, and download
+- Student and staff attachment interfaces
 - Frontend and backend integration
 - Automated API and interface tests
 - Technical documentation
@@ -81,18 +84,19 @@ Duplicate questions are preserved because different records may contain useful c
 - HTTPX
 - python-dotenv
 - itsdangerous
+- python-multipart
 
 ## Project Structure
 
 ```text
-EMU-chatbot/
+dau-chatbot/
 |-- app/
 |   `-- main.py
 |-- data/
-|   |-- EMU_chatbot_Raw_dataset.csv
-|   `-- EMU_chatbot_Cleaned_dataset.csv
+|   |-- Dau_chatbot_Raw_dataset.csv
+|   `-- Dau_chatbot_Cleaned_dataset.csv
 |-- database/
-|   `-- EMU_chatbot.db
+|   `-- dau_chatbot.db
 |-- docs/
 |   |-- data_analysis_report.md
 |   `-- database_schema.md
@@ -121,13 +125,16 @@ EMU-chatbot/
 |   `-- student_dashboard.html
 |-- tests/
 |   `-- test_api.py
+|-- uploads/
 |-- .env.example
 |-- .gitignore
 |-- README.md
 `-- requirements.txt
 ```
 
-The dataset files, generated database, virtual environment, and real `.env` file are excluded from Git.
+The dataset files, generated database, uploaded files, virtual environment, and real `.env` file are excluded from Git.
+
+The technical names `Dau_chatbot_Raw_dataset.csv`, `Dau_chatbot_Cleaned_dataset.csv`, and `dau_chatbot.db` are preserved because they are currently used by the Python scripts.
 
 ## Database Tables
 
@@ -147,6 +154,8 @@ The `knowledge_entries` table stores the cleaned institutional Q&A dataset.
 
 The `questions` and `answers` tables support the live student and staff workflow.
 
+The `attachments` table stores attachment metadata. Uploaded files are stored in the local `uploads` directory.
+
 The `ai_suggestions` table is prepared for future AI-supported answer generation.
 
 ## Installation
@@ -154,8 +163,8 @@ The `ai_suggestions` table is prepared for future AI-supported answer generation
 ### 1. Clone the repository
 
 ```bat
-git clone https://github.com/aliefeekmen/EMU-student-support-system.git
-cd EMU-student-support-system
+git clone https://github.com/aliefeekmen/dau-student-support-system.git
+cd dau-student-support-system
 ```
 
 ### 2. Create a virtual environment
@@ -203,7 +212,7 @@ The real `.env` file must not be uploaded to GitHub.
 Place the raw dataset inside the `data` directory with the following name:
 
 ```text
-EMU_chatbot_Raw_dataset.csv
+Dau_chatbot_Raw_dataset.csv
 ```
 
 Explore the raw dataset:
@@ -279,10 +288,12 @@ A student can:
 - Log in to the student dashboard
 - Submit a new question
 - Select a question category and language
+- Upload an optional question attachment
 - View their own questions
 - Search their own questions
 - View question status
 - View official staff answers
+- View and download attachments from their own questions
 
 ### Staff
 
@@ -292,6 +303,7 @@ A staff member can:
 - View incoming student questions
 - Search and filter questions
 - View question and student information
+- View and download student question attachments
 - Search similar institutional Q&A records
 - Assign a question to themselves
 - Answer assigned questions
@@ -309,6 +321,22 @@ An administrator can:
 - View category and knowledge-base statistics
 
 Users cannot access dashboards or operations that do not belong to their roles.
+
+## Attachment Rules
+
+The attachment system supports:
+
+- PDF
+- PNG
+- JPG and JPEG
+- DOC
+- DOCX
+
+The maximum attachment size is 5 MB.
+
+Files are stored with generated internal names to avoid file-name conflicts. Their original names are preserved in the database and displayed to authorized users.
+
+Students can only upload and access attachments belonging to their own questions. Staff and administrators can access attachments through protected endpoints.
 
 ## Main Pages
 
@@ -343,6 +371,12 @@ Users cannot access dashboards or operations that do not belong to their roles.
 - `POST /questions/{question_id}/answers` - Answer a question
 - `GET /students/{student_id}/questions` - List one student's questions
 
+### Attachments
+
+- `POST /questions/{question_id}/attachments` - Upload an attachment
+- `GET /questions/{question_id}/attachments` - List question attachments
+- `GET /attachments/{attachment_id}/download` - Download an attachment
+
 ### Administration
 
 - `GET /admin/overview` - View administrator statistics
@@ -373,7 +407,7 @@ python -m pytest -v
 Current result:
 
 ```text
-16 passed
+18 passed
 ```
 
 The tests cover:
@@ -389,6 +423,9 @@ The tests cover:
 - Expert dashboard
 - Administrator dashboard
 - Administrator API endpoints
+- Attachment upload
+- Attachment listing and download
+- Attachment authorization
 - Static file delivery
 - Unauthorized access restrictions
 
@@ -397,7 +434,12 @@ The tests cover:
 - Passwords are stored as hashes, not plain text.
 - Session data is protected with `SESSION_SECRET`.
 - Role checks protect student, staff, and administrator operations.
+- Students can only upload attachments to their own questions.
+- Attachment file types and file sizes are validated.
+- Stored attachment names are generated by the system.
+- Attachment download endpoints require authentication.
 - The real `.env` file is excluded from Git.
+- Uploaded files are excluded from Git.
 - Demo accounts are for local development only.
 - HTTPS and secure cookies must be enabled before production deployment.
 
@@ -407,7 +449,6 @@ The tests cover:
 - Integrate the selected AI model
 - Generate AI-supported answer suggestions
 - Compare model performance
-- Add file attachment upload
 - Complete Turkish and English interface switching
 - Add automatic question category classification
 - Add password reset and account management
@@ -420,4 +461,4 @@ The tests cover:
 
 GitHub repository:
 
-https://github.com/aliefeekmen/EMU-student-support-system
+https://github.com/aliefeekmen/dau-student-support-system

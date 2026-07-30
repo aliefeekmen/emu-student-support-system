@@ -25,3 +25,6 @@ uploads/
 # Operating system files
 Thumbs.db
 .DS_Store
+
+# Uploaded question attachments
+uploads/

@@ -261,7 +261,14 @@
                                  id="student-detail-question">
                                 Your question will be displayed here.
                             </div>
+                            <h3 class="section-title">
+                                Attachments
+                            </h3>
 
+                            <div class="suggestion"
+                                 id="student-detail-attachments">
+                                No attachments are available.
+                            </div>
                             <h3 class="section-title">
                                 Expert Answer
                             </h3>
@@ -344,7 +351,21 @@
                                       required
                                       placeholder="Write your question in detail..."></textarea>
                         </label>
+                        <label>
+                            <span class="field-label">
+                                Optional Attachment
+                            </span>
 
+                            <input class="input"
+                                   id="new-question-attachment"
+                                   type="file"
+                                   accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
+
+                            <small>
+                                PDF, PNG, JPG, DOC or DOCX.
+                                Maximum file size: 5 MB.
+                            </small>
+                        </label>
                         <div class="editor-actions">
                             <button class="primary-button"
                                     type="submit"
@@ -363,6 +384,6 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', path='/js/student_dashboard.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/student_dashboard.js') }}?v=3"></script>
 </body>
 </html>
