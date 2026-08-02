@@ -1,8 +1,8 @@
 # EMU Student Support and Institutional Q&A System
 
-This project is developed for the Eastern Mediterranean University summer internship project.
+This project was developed for the Eastern Mediterranean University summer internship project.
 
-The system stores student questions and official staff answers in a central database. It provides role-based web dashboards and a FastAPI backend for managing student questions.
+The system stores student questions and official staff answers in a central database. It provides role-based web dashboards and a FastAPI backend for managing student questions, institutional Q&A records, categories, answers, and attachments.
 
 The system is also prepared for future AI-supported answer suggestions.
 
@@ -13,9 +13,11 @@ The system is also prepared for future AI-supported answer suggestions.
 - Design a relational database
 - Create an institutional question-answer memory
 - Allow students to submit and track questions
-- Allow students to upload optional attachments
+- Allow students to upload attachments with their questions
 - Allow questions to be assigned to staff members
 - Allow staff members to answer questions
+- Allow staff and administrators to create categories
+- Allow staff and administrators to update question categories
 - Provide separate student, staff, and administrator dashboards
 - Protect system operations with authentication and authorization
 - Prepare the system for future AI integration
@@ -34,13 +36,14 @@ The following work has been completed:
 - FastAPI backend setup
 - Knowledge-base searching and filtering
 - Student question and staff answer workflow
+- Secure question attachment upload and download
 - Session-based authentication
 - Role-based authorization
 - Student dashboard
 - Expert dashboard
 - Administrator dashboard
-- Secure attachment upload, listing, and download
-- Student and staff attachment interfaces
+- Independent category creation for staff and administrators
+- Question category assignment by staff and administrators
 - Frontend and backend integration
 - Automated API and interface tests
 - Technical documentation
@@ -52,7 +55,7 @@ The official train/test split and AI model testing will be added in a later phas
 - Total records: 769
 - Turkish records: 654
 - English records: 115
-- Normalized categories: 31
+- Original normalized categories: 31
 - Missing values after cleaning: 0
 - Fully duplicated rows: 0
 - Duplicated questions after text normalization: 121
@@ -67,6 +70,8 @@ Dataset columns:
 - `Dil`
 
 Duplicate questions are preserved because different records may contain useful category, language, or answer information. They can be reviewed again when the official train/test split is provided.
+
+The application can contain more than 31 categories because authorized staff and administrators can create new categories.
 
 ## Technologies
 
@@ -134,8 +139,6 @@ dau-chatbot/
 
 The dataset files, generated database, uploaded files, virtual environment, and real `.env` file are excluded from Git.
 
-The technical names `Dau_chatbot_Raw_dataset.csv`, `Dau_chatbot_Cleaned_dataset.csv`, and `dau_chatbot.db` are preserved because they are currently used by the Python scripts.
-
 ## Database Tables
 
 The relational database contains the following tables:
@@ -152,9 +155,7 @@ The relational database contains the following tables:
 
 The `knowledge_entries` table stores the cleaned institutional Q&A dataset.
 
-The `questions` and `answers` tables support the live student and staff workflow.
-
-The `attachments` table stores attachment metadata. Uploaded files are stored in the local `uploads` directory.
+The `questions`, `answers`, and `attachments` tables support the live student and staff workflow.
 
 The `ai_suggestions` table is prepared for future AI-supported answer generation.
 
@@ -288,12 +289,12 @@ A student can:
 - Log in to the student dashboard
 - Submit a new question
 - Select a question category and language
-- Upload an optional question attachment
+- Upload an allowed attachment of up to 5 MB
+- View and download their own question attachments
 - View their own questions
 - Search their own questions
 - View question status
 - View official staff answers
-- View and download attachments from their own questions
 
 ### Staff
 
@@ -303,11 +304,13 @@ A staff member can:
 - View incoming student questions
 - Search and filter questions
 - View question and student information
-- View and download student question attachments
+- View and download student attachments
 - Search similar institutional Q&A records
 - Assign a question to themselves
 - Answer assigned questions
 - View answered questions
+- Create bilingual categories independently
+- Update the category of a selected question
 
 ### Administrator
 
@@ -319,24 +322,10 @@ An administrator can:
 - View question status counts
 - View the number of answers
 - View category and knowledge-base statistics
+- Create bilingual categories independently
+- Update the category of a selected question
 
 Users cannot access dashboards or operations that do not belong to their roles.
-
-## Attachment Rules
-
-The attachment system supports:
-
-- PDF
-- PNG
-- JPG and JPEG
-- DOC
-- DOCX
-
-The maximum attachment size is 5 MB.
-
-Files are stored with generated internal names to avoid file-name conflicts. Their original names are preserved in the database and displayed to authorized users.
-
-Students can only upload and access attachments belonging to their own questions. Staff and administrators can access attachments through protected endpoints.
 
 ## Main Pages
 
@@ -354,28 +343,30 @@ Students can only upload and access attachments belonging to their own questions
 - `POST /logout` - End the current session
 - `GET /me` - View the authenticated user
 
-### Knowledge Base
+### Knowledge Base and Categories
 
 - `GET /health` - Check the API and database connection
 - `GET /stats` - View database statistics
 - `GET /categories` - List categories
+- `POST /categories` - Create a bilingual category as staff or admin
 - `GET /knowledge` - Search and filter institutional Q&A records
 - `GET /knowledge/{entry_id}` - View one institutional Q&A record
 
 ### Question Management
 
 - `POST /questions` - Submit a student question
-- `GET /questions` - List student questions for staff
+- `GET /questions` - List student questions for staff and administrators
 - `GET /questions/{question_id}` - View question details
 - `PATCH /questions/{question_id}/assign` - Assign a question
+- `PATCH /questions/{question_id}/category` - Update a question category
 - `POST /questions/{question_id}/answers` - Answer a question
 - `GET /students/{student_id}/questions` - List one student's questions
 
 ### Attachments
 
-- `POST /questions/{question_id}/attachments` - Upload an attachment
+- `POST /questions/{question_id}/attachments` - Upload a question attachment
 - `GET /questions/{question_id}/attachments` - List question attachments
-- `GET /attachments/{attachment_id}/download` - Download an attachment
+- `GET /attachments/{attachment_id}/download` - Download an authorized attachment
 
 ### Administration
 
@@ -383,6 +374,16 @@ Students can only upload and access attachments belonging to their own questions
 - `GET /admin/users` - List system users
 
 Protected endpoints require a valid session and the correct user role.
+
+## Attachment Security
+
+- Only the owner student can upload an attachment to their question.
+- Students can only access attachments belonging to their own questions.
+- Staff and administrators can access attachments for support operations.
+- File extensions and MIME types are validated.
+- The maximum file size is 5 MB.
+- Stored filenames are generated securely instead of trusting the original filename.
+- Uploaded files are excluded from Git.
 
 ## Demo Accounts
 
@@ -407,7 +408,7 @@ python -m pytest -v
 Current result:
 
 ```text
-18 passed
+21 passed
 ```
 
 The tests cover:
@@ -423,21 +424,17 @@ The tests cover:
 - Expert dashboard
 - Administrator dashboard
 - Administrator API endpoints
-- Attachment upload
-- Attachment listing and download
-- Attachment authorization
+- Secure attachment upload and access restrictions
+- Category creation by staff and administrators
+- Question category assignment
+- Unauthorized category operations
 - Static file delivery
-- Unauthorized access restrictions
 
 ## Security Notes
 
 - Passwords are stored as hashes, not plain text.
 - Session data is protected with `SESSION_SECRET`.
 - Role checks protect student, staff, and administrator operations.
-- Students can only upload attachments to their own questions.
-- Attachment file types and file sizes are validated.
-- Stored attachment names are generated by the system.
-- Attachment download endpoints require authentication.
 - The real `.env` file is excluded from Git.
 - Uploaded files are excluded from Git.
 - Demo accounts are for local development only.

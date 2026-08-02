@@ -1,9 +1,9 @@
 const STAFF_ID = Number(
     document.body.dataset.userId
 );
-
 const state = {
     questions: [],
+    categories: [],
     selectedQuestionId: null,
     selectedQuestion: null,
     suggestion: "",
@@ -26,9 +26,40 @@ const elements = {
     detailLanguage: document.querySelector("#detail-language"),
     detailDate: document.querySelector("#detail-date"),
     detailSubject: document.querySelector("#detail-subject"),
-        detailQuestion: document.querySelector("#detail-question"),
+    detailQuestion: document.querySelector("#detail-question"),
     detailAttachments: document.querySelector(
         "#detail-attachments"
+    ),
+
+    categorySelect: document.querySelector(
+        "#question-category-select"
+    ),
+    updateCategoryButton: document.querySelector(
+        "#update-category-button"
+    ),
+    newCategoryTr: document.querySelector(
+        "#new-category-tr"
+    ),
+    newCategoryEn: document.querySelector(
+        "#new-category-en"
+    ),
+    createCategoryButton: document.querySelector(
+        "#create-category-button"
+    ),
+    categoryUpdateMessage: document.querySelector(
+        "#category-update-message"
+    ),
+    categoryCreateMessage: document.querySelector(
+        "#category-create-message"
+    ),
+    categoryDialog: document.querySelector(
+        "#category-dialog"
+    ),
+    openCategoryDialogButton: document.querySelector(
+        "#open-category-dialog"
+    ),
+    closeCategoryDialogButton: document.querySelector(
+        "#close-category-dialog"
     ),
 
     studentName: document.querySelector("#student-name"),
@@ -122,6 +153,195 @@ async function apiRequest(url, options = {}) {
     }
 
     return data;
+}
+function renderCategoryOptions(
+    selectedCategoryId = null
+) {
+    elements.categorySelect.innerHTML = `
+        <option value="">
+            Select a category
+        </option>
+    `;
+
+    state.categories.forEach((category) => {
+        const option =
+            document.createElement("option");
+
+        option.value = category.id;
+        option.textContent =
+            `${category.name_en} / ${category.name_tr}`;
+
+        elements.categorySelect.appendChild(
+            option
+        );
+    });
+
+    if (selectedCategoryId !== null) {
+        elements.categorySelect.value =
+            String(selectedCategoryId);
+    }
+}
+
+
+async function loadCategories(
+    selectedCategoryId = null
+) {
+    try {
+        state.categories = await apiRequest(
+            "/categories"
+        );
+
+        renderCategoryOptions(
+            selectedCategoryId
+            ?? state.selectedQuestion?.category.id
+            ?? null
+        );
+    } catch (error) {
+        showCategoryMessage(
+            error.message,
+            true
+        );
+    }
+}
+
+function showCategoryMessage(
+    message,
+    isError = false,
+    target = elements.categoryUpdateMessage
+) {
+    target.hidden = false;
+    target.textContent = message;
+    target.style.color =
+        isError ? "#d83b4f" : "#158657";
+}
+
+async function createCategory() {
+    const nameTr =
+        elements.newCategoryTr.value.trim();
+
+    const nameEn =
+        elements.newCategoryEn.value.trim();
+
+    if (!nameTr || !nameEn) {
+        showCategoryMessage(
+            "Both Turkish and English category names are required.",
+            true,
+            elements.categoryCreateMessage
+        );
+
+        return;
+    }
+
+    elements.createCategoryButton.disabled = true;
+
+    try {
+        const category = await apiRequest(
+            "/categories",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    name_tr: nameTr,
+                    name_en: nameEn,
+                }),
+            }
+        );
+
+        elements.newCategoryTr.value = "";
+        elements.newCategoryEn.value = "";
+
+        await loadCategories(
+            state.selectedQuestion?.category.id
+            ?? null
+        );
+
+        showCategoryMessage(
+            "Category created successfully. "
+            + "It is now available for question assignment.",
+            false,
+            elements.categoryCreateMessage
+        );
+    } catch (error) {
+        showCategoryMessage(
+            error.message,
+            true,
+            elements.categoryCreateMessage
+        );
+    } finally {
+        elements.createCategoryButton.disabled =
+            false;
+    }
+}
+
+
+async function updateQuestionCategory() {
+    if (!state.selectedQuestion) {
+        showCategoryMessage(
+            "Please select a question first.",
+            true
+        );
+
+        return;
+    }
+
+    const categoryId = Number(
+        elements.categorySelect.value
+    );
+
+    if (!categoryId) {
+        showCategoryMessage(
+            "Please select a category.",
+            true
+        );
+
+        return;
+    }
+
+    elements.updateCategoryButton.disabled = true;
+
+    try {
+        const result = await apiRequest(
+            `/questions/${state.selectedQuestion.id
+            }/category`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    category_id: categoryId,
+                }),
+            }
+        );
+
+        state.selectedQuestion.category =
+            result.category;
+
+        elements.detailCategory.textContent =
+            result.category.name_en;
+
+        const listQuestion =
+            state.questions.find(
+                (question) =>
+                    question.id
+                    === state.selectedQuestion.id
+            );
+
+        if (listQuestion) {
+            listQuestion.category =
+                result.category.name_en;
+        }
+
+        renderQuestionList();
+
+        showCategoryMessage(
+            "Question category updated successfully."
+        );
+    } catch (error) {
+        showCategoryMessage(
+            error.message,
+            true
+        );
+    } finally {
+        elements.updateCategoryButton.disabled =
+            false;
+    }
 }
 
 async function loadQuestions() {
@@ -271,6 +491,7 @@ function renderQuestionList() {
             });
         });
 }
+
 async function loadQuestionAttachments(
     questionId
 ) {
@@ -310,17 +531,19 @@ async function loadQuestionAttachments(
             escapeHtml(error.message);
     }
 }
+
 async function selectQuestion(questionId) {
     state.selectedQuestionId = questionId;
     renderQuestionList();
     clearMessage();
+    elements.categoryUpdateMessage.hidden = true;
 
     try {
         const question = await apiRequest(
             `/questions/${questionId}`
         );
 
-                state.selectedQuestion = question;
+        state.selectedQuestion = question;
         displayQuestion(question);
 
         await Promise.all([
@@ -342,6 +565,10 @@ function displayQuestion(question) {
     elements.detailCategory.textContent =
         question.category.name_en
         || question.category.name_tr;
+
+    renderCategoryOptions(
+        question.category.id
+    );
 
     elements.detailLanguage.textContent =
         question.language.toUpperCase();
@@ -370,7 +597,7 @@ function displayQuestion(question) {
     const latestAnswer =
         question.answers.length > 0
             ? question.answers[
-                question.answers.length - 1
+            question.answers.length - 1
             ]
             : null;
 
@@ -403,7 +630,7 @@ function getSearchKeyword(subject) {
         "problem",
         "sorunu",
         "hakkinda",
-        "hakkında",
+        "hakkÄ±nda",
     ]);
 
     return subject
@@ -429,10 +656,8 @@ async function loadSimilarQuestions(question) {
 
     try {
         const result = await apiRequest(
-            `/knowledge?language=${
-                encodeURIComponent(question.language)
-            }&search=${
-                encodeURIComponent(keyword)
+            `/knowledge?language=${encodeURIComponent(question.language)
+            }&search=${encodeURIComponent(keyword)
             }&limit=3`
         );
 
@@ -602,6 +827,41 @@ document
         });
     });
 
+elements.openCategoryDialogButton.addEventListener(
+    "click",
+    () => {
+        elements.categoryCreateMessage.hidden = true;
+        elements.categoryDialog.showModal();
+        elements.newCategoryTr.focus();
+    }
+);
+
+elements.closeCategoryDialogButton.addEventListener(
+    "click",
+    () => {
+        elements.categoryDialog.close();
+    }
+);
+
+elements.categoryDialog.addEventListener(
+    "click",
+    (event) => {
+        if (event.target === elements.categoryDialog) {
+            elements.categoryDialog.close();
+        }
+    }
+);
+
+elements.updateCategoryButton.addEventListener(
+    "click",
+    updateQuestionCategory
+);
+
+elements.createCategoryButton.addEventListener(
+    "click",
+    createCategory
+);
+
 elements.sendAnswerButton.addEventListener(
     "click",
     sendAnswer
@@ -629,4 +889,7 @@ elements.languageButton.addEventListener(
     }
 );
 
-loadQuestions();
+Promise.all([
+    loadCategories(),
+    loadQuestions(),
+]);

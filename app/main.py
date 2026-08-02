@@ -461,7 +461,9 @@ def list_questions(
                 questions.question_text,
                 questions.status,
                 students.full_name,
+                categories.id,
                 categories.name_tr,
+                categories.name_en,
                 languages.code,
                 staff.full_name,
                 questions.created_at
@@ -490,10 +492,12 @@ def list_questions(
             "question_text": row[2],
             "status": row[3],
             "student_name": row[4],
-            "category": row[5],
-            "language": row[6],
-            "assigned_staff": row[7],
-            "created_at": row[8],
+            "category_id": row[5],
+            "category": row[6],
+            "category_en": row[7],
+            "language": row[8],
+            "assigned_staff": row[9],
+            "created_at": row[10],
         }
         for row in rows
     ]
@@ -752,6 +756,7 @@ def get_question_detail(
                 questions.status,
                 students.full_name,
                 students.university_id,
+                categories.id,
                 categories.name_tr,
                 categories.name_en,
                 languages.code,
@@ -817,14 +822,15 @@ def get_question_detail(
         "status": question[3],
         "student_name": question[4],
         "student_number": question[5],
-        "category": {
-            "name_tr": question[6],
-            "name_en": question[7],
+                "category": {
+            "id": question[6],
+            "name_tr": question[7],
+            "name_en": question[8],
         },
-        "language": question[8],
-        "assigned_staff": question[9],
-        "created_at": question[10],
-        "updated_at": question[11],
+        "language": question[9],
+        "assigned_staff": question[10],
+        "created_at": question[11],
+        "updated_at": question[12],
         "answers": answers,
     }
 @app.get("/dashboard", include_in_schema=False)
@@ -1465,3 +1471,155 @@ def download_question_attachment(
         ),
         filename=attachment_record[0],
     )
+class CategoryCreate(BaseModel):
+    name_tr: str = Field(
+        min_length=2,
+        max_length=150,
+    )
+    name_en: str = Field(
+        min_length=2,
+        max_length=150,
+    )
+
+
+class QuestionCategoryUpdate(BaseModel):
+    category_id: int = Field(gt=0)
+
+
+@app.post("/categories", status_code=201)
+def create_category(
+    request: Request,
+    category: CategoryCreate,
+):
+    require_session_user(
+        request,
+        allowed_roles=("staff", "admin"),
+    )
+
+    name_tr = " ".join(
+        category.name_tr.split()
+    )
+    name_en = " ".join(
+        category.name_en.split()
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        cursor = connection.cursor()
+
+        existing_categories = cursor.execute(
+            """
+            SELECT id, name_tr, name_en
+            FROM categories
+            """
+        ).fetchall()
+
+        duplicate_exists = any(
+            row[1].casefold() == name_tr.casefold()
+            or row[2].casefold() == name_en.casefold()
+            for row in existing_categories
+        )
+
+        if duplicate_exists:
+            raise HTTPException(
+                status_code=409,
+                detail="A category with this name already exists.",
+            )
+
+        try:
+            cursor.execute(
+                """
+                INSERT INTO categories (
+                    name_tr,
+                    name_en
+                )
+                VALUES (?, ?)
+                """,
+                (name_tr, name_en),
+            )
+            category_id = cursor.lastrowid
+            connection.commit()
+        except sqlite3.IntegrityError as error:
+            raise HTTPException(
+                status_code=409,
+                detail="A category with this name already exists.",
+            ) from error
+
+    return {
+        "id": category_id,
+        "name_tr": name_tr,
+        "name_en": name_en,
+        "message": "Category created successfully.",
+    }
+
+
+@app.patch(
+    "/questions/{question_id}/category"
+)
+def update_question_category(
+    question_id: int,
+    request: Request,
+    category: QuestionCategoryUpdate,
+):
+    require_session_user(
+        request,
+        allowed_roles=("staff", "admin"),
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        cursor = connection.cursor()
+
+        question_record = cursor.execute(
+            """
+            SELECT id
+            FROM questions
+            WHERE id = ?
+            """,
+            (question_id,),
+        ).fetchone()
+
+        if question_record is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Question not found.",
+            )
+
+        category_record = cursor.execute(
+            """
+            SELECT id, name_tr, name_en
+            FROM categories
+            WHERE id = ?
+            """,
+            (category.category_id,),
+        ).fetchone()
+
+        if category_record is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid category.",
+            )
+
+        cursor.execute(
+            """
+            UPDATE questions
+            SET
+                category_id = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (
+                category.category_id,
+                question_id,
+            ),
+        )
+        connection.commit()
+
+    return {
+        "question_id": question_id,
+        "category": {
+            "id": category_record[0],
+            "name_tr": category_record[1],
+            "name_en": category_record[2],
+        },
+        "message": "Question category updated successfully.",
+    }

@@ -75,41 +75,41 @@
                     Student Q&A Center
                 </div>
 
-                <button
-                    class="nav-item active"
-                    data-status-filter=""
-                >
+                <button class="nav-item active"
+                        data-status-filter="">
                     <span class="icon">
                         <i class="ph ph-envelope-simple"></i>
                     </span>
                     Incoming Questions
                 </button>
 
-                <button
-                    class="nav-item"
-                    data-status-filter="assigned"
-                >
+                <button class="nav-item"
+                        data-status-filter="assigned">
                     <span class="icon">
                         <i class="ph ph-clock"></i>
                     </span>
                     Pending Questions
 
-                    <span
-                        class="nav-badge"
-                        id="pending-nav-count"
-                    >
+                    <span class="nav-badge"
+                          id="pending-nav-count">
                         0
                     </span>
                 </button>
 
-                <button
-                    class="nav-item"
-                    data-status-filter="answered"
-                >
+                <button class="nav-item"
+                        data-status-filter="answered">
                     <span class="icon">
                         <i class="ph ph-check-circle"></i>
                     </span>
                     Answered by Me
+                </button>
+
+                <button class="nav-item"
+                        id="open-category-dialog">
+                    <span class="icon">
+                        <i class="ph ph-tag"></i>
+                    </span>
+                    Category Management
                 </button>
 
                 <button class="nav-item">
@@ -147,10 +147,8 @@
         <div class="main-area">
             <header class="topbar">
                 <div class="topbar-left">
-                    <button
-                        class="icon-button mobile-menu"
-                        aria-label="Open menu"
-                    >
+                    <button class="icon-button mobile-menu"
+                            aria-label="Open menu">
                         <i class="ph ph-list"></i>
                     </button>
 
@@ -158,51 +156,36 @@
                 </div>
 
                 <div class="topbar-actions">
-                    <button
-                        class="icon-button"
-                        id="notification-button"
-                        aria-label="Notifications"
-                    >
+
+                    <button class="icon-button"
+                            id="notification-button"
+                            aria-label="Notifications">
                         <i class="ph ph-bell"></i>
                     </button>
 
-                    <button
-                        class="language-button"
-                        id="language-button"
-                    >
+                    <button class="language-button"
+                            id="language-button">
                         EN
                     </button>
 
-                    <button
-                        class="icon-button"
-                        id="theme-button"
-                        aria-label="Change theme"
-                    >
+                    <button class="icon-button"
+                            id="theme-button"
+                            aria-label="Change theme">
                         <i class="ph ph-moon"></i>
                     </button>
 
                     <div class="profile">
                         <div class="profile-copy">
-                            <strong>
-                                {{ user.full_name }}
-                            </strong>
-
-                            <span>
-                                {{ user.university_id }}
-                            </span>
+                            <strong>{{ user.full_name }}</strong>
+                            <span>{{ user.university_id }}</span>
                         </div>
 
                         <div class="avatar">DS</div>
                     </div>
 
-                    <form
-                        action="/logout"
-                        method="post"
-                    >
-                        <button
-                            class="logout-button"
-                            type="submit"
-                        >
+                    <form action="/logout" method="post">
+                        <button class="logout-button"
+                                type="submit">
                             <i class="ph ph-sign-out"></i>
                             Log Out
                         </button>
@@ -220,55 +203,29 @@
                             and contribute to the institutional memory.
                         </p>
                     </div>
+
                 </section>
 
                 <section class="stats-grid">
                     <article class="stat-card cyan">
-                        <div class="stat-label">
-                            New Questions
-                        </div>
-
-                        <div
-                            class="stat-value"
-                            id="new-count"
-                        >
-                            0
-                        </div>
-
+                        <div class="stat-label">New Questions</div>
+                        <div class="stat-value" id="new-count">0</div>
                         <div class="stat-caption">
                             Waiting to be assigned
                         </div>
                     </article>
 
                     <article class="stat-card pink">
-                        <div class="stat-label">
-                            Pending Questions
-                        </div>
-
-                        <div
-                            class="stat-value"
-                            id="pending-count"
-                        >
-                            0
-                        </div>
-
+                        <div class="stat-label">Pending Questions</div>
+                        <div class="stat-value" id="pending-count">0</div>
                         <div class="stat-caption">
                             Waiting for an answer
                         </div>
                     </article>
 
                     <article class="stat-card green">
-                        <div class="stat-label">
-                            Answered
-                        </div>
-
-                        <div
-                            class="stat-value"
-                            id="answered-count"
-                        >
-                            0
-                        </div>
-
+                        <div class="stat-label">Answered</div>
+                        <div class="stat-value" id="answered-count">0</div>
                         <div class="stat-caption">
                             Completed questions
                         </div>
@@ -278,11 +235,7 @@
                         <div class="stat-label">
                             Average Response Time
                         </div>
-
-                        <div class="stat-value">
-                            2.4 h
-                        </div>
-
+                        <div class="stat-value">2.4 h</div>
                         <div class="stat-caption">
                             Development example
                         </div>
@@ -292,11 +245,7 @@
                         <div class="stat-label">
                             Performance Points
                         </div>
-
-                        <div class="stat-value">
-                            875
-                        </div>
-
+                        <div class="stat-value">875</div>
                         <div class="stat-caption">
                             Development example
                         </div>
@@ -313,44 +262,28 @@
 
                         <div class="panel-body">
                             <div class="search-row">
-                                <input
-                                    class="input"
-                                    id="question-search"
-                                    type="search"
-                                    placeholder="Search questions..."
-                                >
+                                <input class="input"
+                                       id="question-search"
+                                       type="search"
+                                       placeholder="Search questions...">
 
-                                <select
-                                    class="select"
-                                    id="status-filter"
-                                    aria-label="Status filter"
-                                >
-                                    <option value="">
-                                        All
-                                    </option>
-
-                                    <option value="open">
-                                        Open
-                                    </option>
-
+                                <select class="select"
+                                        id="status-filter"
+                                        aria-label="Status filter">
+                                    <option value="">All</option>
+                                    <option value="open">Open</option>
                                     <option value="assigned">
                                         Assigned
                                     </option>
-
                                     <option value="answered">
                                         Answered
                                     </option>
-
-                                    <option value="closed">
-                                        Closed
-                                    </option>
+                                    <option value="closed">Closed</option>
                                 </select>
                             </div>
 
-                            <div
-                                class="question-list"
-                                id="question-list"
-                            >
+                            <div class="question-list"
+                                 id="question-list">
                                 <div class="empty-state">
                                     Loading questions...
                                 </div>
@@ -362,10 +295,7 @@
                         <header class="panel-header">
                             <h2>Question Detail</h2>
 
-                            <span
-                                class="tag"
-                                id="detail-status"
-                            >
+                            <span class="tag" id="detail-status">
                                 Select a question
                             </span>
                         </header>
@@ -373,47 +303,52 @@
                         <div class="panel-body">
                             <div class="detail-meta">
                                 <span>
-                                    <strong>
-                                        Category:
-                                    </strong>
-
-                                    <span id="detail-category">
-                                        -
-                                    </span>
+                                    <strong>Category:</strong>
+                                    <span id="detail-category">-</span>
                                 </span>
 
                                 <span>
-                                    <strong>
-                                        Language:
-                                    </strong>
-
-                                    <span id="detail-language">
-                                        -
-                                    </span>
+                                    <strong>Language:</strong>
+                                    <span id="detail-language">-</span>
                                 </span>
 
                                 <span>
-                                    <strong>
-                                        Date:
-                                    </strong>
-
-                                    <span id="detail-date">
-                                        -
-                                    </span>
+                                    <strong>Date:</strong>
+                                    <span id="detail-date">-</span>
                                 </span>
                             </div>
 
-                            <h3
-                                class="section-title"
-                                id="detail-subject"
-                            >
+                            <h3 class="section-title">
+                                Question Category Management
+                            </h3>
+
+                            <div class="search-row">
+                                <select class="select"
+                                        id="question-category-select"
+                                        aria-label="Question category">
+                                    <option value="">
+                                        Select a category
+                                    </option>
+                                </select>
+
+                                <button class="secondary-button"
+                                        id="update-category-button"
+                                        type="button">
+                                    Update Category
+                                </button>
+                            </div>
+
+                            <div class="empty-state"
+                                 id="category-update-message"
+                                 hidden></div>
+
+                            <h3 class="section-title"
+                                id="detail-subject">
                                 Select a question from the list
                             </h3>
 
-                            <div
-                                class="question-message"
-                                id="detail-question"
-                            >
+                            <div class="question-message"
+                                 id="detail-question">
                                 Question content will be displayed here.
                             </div>
 
@@ -421,10 +356,8 @@
                                 Student Attachments
                             </h3>
 
-                            <div
-                                class="suggestion"
-                                id="detail-attachments"
-                            >
+                            <div class="suggestion"
+                                 id="detail-attachments">
                                 No attachments are available.
                             </div>
 
@@ -432,35 +365,27 @@
                                 Your Expert Answer
                             </h3>
 
-                            <textarea
-                                class="textarea"
-                                id="answer-text"
-                                placeholder="Write your answer..."
-                            ></textarea>
+                            <textarea class="textarea"
+                                      id="answer-text"
+                                      placeholder="Write your answer..."></textarea>
 
                             <div class="editor-actions">
-                                <button
-                                    class="secondary-button"
-                                    id="use-suggestion-button"
-                                >
+                                <button class="secondary-button"
+                                        id="use-suggestion-button">
                                     <i class="ph ph-brain"></i>
                                     Use Suggestion
                                 </button>
 
-                                <button
-                                    class="answer-button"
-                                    id="send-answer-button"
-                                >
+                                <button class="answer-button"
+                                        id="send-answer-button">
                                     <i class="ph ph-paper-plane-tilt"></i>
                                     Send Answer
                                 </button>
                             </div>
 
-                            <div
-                                class="empty-state"
-                                id="answer-message"
-                                hidden
-                            ></div>
+                            <div class="empty-state"
+                                 id="answer-message"
+                                 hidden></div>
                         </div>
                     </article>
 
@@ -476,30 +401,22 @@
                                 <dl class="info-list">
                                     <div class="info-row">
                                         <dt>Full Name</dt>
-                                        <dd id="student-name">
-                                            -
-                                        </dd>
+                                        <dd id="student-name">-</dd>
                                     </div>
 
                                     <div class="info-row">
                                         <dt>Student Number</dt>
-                                        <dd id="student-number">
-                                            -
-                                        </dd>
+                                        <dd id="student-number">-</dd>
                                     </div>
 
                                     <div class="info-row">
                                         <dt>Assigned Staff</dt>
-                                        <dd id="assigned-staff">
-                                            -
-                                        </dd>
+                                        <dd id="assigned-staff">-</dd>
                                     </div>
 
                                     <div class="info-row">
                                         <dt>Question ID</dt>
-                                        <dd id="question-number">
-                                            -
-                                        </dd>
+                                        <dd id="question-number">-</dd>
                                     </div>
                                 </dl>
                             </div>
@@ -512,10 +429,8 @@
                                 <i class="ph ph-files"></i>
                             </header>
 
-                            <div
-                                class="panel-body link-list"
-                                id="similar-questions"
-                            >
+                            <div class="panel-body link-list"
+                                 id="similar-questions">
                                 <div class="empty-state">
                                     Select a question first.
                                 </div>
@@ -530,10 +445,8 @@
                             </header>
 
                             <div class="panel-body">
-                                <div
-                                    class="suggestion"
-                                    id="ai-suggestion"
-                                >
+                                <div class="suggestion"
+                                     id="ai-suggestion">
                                     AI integration will be added after
                                     the official train/test split is
                                     provided.
@@ -546,6 +459,54 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', path='/js/dashboard.js') }}?v=4"></script>
+    <dialog class="panel category-dialog"
+            id="category-dialog">
+        <header class="panel-header">
+            <h2>Category Management</h2>
+
+            <button class="icon-button"
+                    id="close-category-dialog"
+                    type="button"
+                    aria-label="Close category management">
+                <i class="ph ph-x"></i>
+            </button>
+        </header>
+
+        <div class="panel-body">
+            <p>
+                Add a new category independently from student
+                questions.
+            </p>
+
+            <div class="form-grid">
+                <input class="input"
+                       id="new-category-tr"
+                       type="text"
+                       maxlength="150"
+                       placeholder="Turkish category name">
+
+                <input class="input"
+                       id="new-category-en"
+                       type="text"
+                       maxlength="150"
+                       placeholder="English category name">
+            </div>
+
+            <div class="editor-actions">
+                <button class="answer-button"
+                        id="create-category-button"
+                        type="button">
+                    <i class="ph ph-plus"></i>
+                    Add Category
+                </button>
+            </div>
+
+            <div class="empty-state"
+                 id="category-create-message"
+                 hidden></div>
+        </div>
+    </dialog>
+
+    <script src="{{ url_for('static', path='/js/dashboard.js') }}?v=6"></script>
 </body>
 </html>

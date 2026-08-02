@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -83,7 +84,7 @@ def test_statistics_endpoint():
 
     assert response.status_code == 200
     assert data["knowledge_entries"] == 769
-    assert data["categories"] == 31
+    assert data["categories"] >= 31
     assert data["languages"] == 2
 
 
@@ -94,7 +95,7 @@ def test_categories_endpoint():
     categories = response.json()
 
     assert response.status_code == 200
-    assert len(categories) == 31
+    assert len(categories) >= 31
 
 
 def test_knowledge_search():
@@ -211,7 +212,7 @@ def test_admin_overview_endpoint():
 
     assert response.status_code == 200
     assert data["users"] == 3
-    assert data["categories"] == 31
+    assert data["categories"] >= 31
     assert data["knowledge_entries"] == 769
 
 
@@ -367,6 +368,156 @@ def test_staff_cannot_upload_question_attachment():
                 b"%PDF-1.4 test document",
                 "application/pdf",
             )
+        },
+    )
+
+    assert response.status_code == 403
+def cleanup_category_test(
+    question_id=None,
+    category_id=None,
+):
+    with sqlite3.connect(database_path) as connection:
+        if question_id is not None:
+            connection.execute(
+                """
+                DELETE FROM questions
+                WHERE id = ?
+                """,
+                (question_id,),
+            )
+
+        if category_id is not None:
+            connection.execute(
+                """
+                DELETE FROM categories
+                WHERE id = ?
+                """,
+                (category_id,),
+            )
+
+        connection.commit()
+
+
+def test_staff_can_create_and_assign_category():
+    unique_value = uuid4().hex[:8]
+    question_id = None
+    category_id = None
+
+    try:
+        login_as_student()
+
+        question_response = client.post(
+            "/questions",
+            json={
+                "student_id": 1,
+                "category_id": 15,
+                "language": "en",
+                "subject": "Category assignment test",
+                "question_text": (
+                    "This question is created to test "
+                    "category assignment."
+                ),
+            },
+        )
+
+        assert question_response.status_code == 201
+        question_id = question_response.json()["id"]
+
+        client.post("/logout")
+        login_as_staff()
+
+        category_data = {
+            "name_tr": (
+                f"Test Kategorisi {unique_value}"
+            ),
+            "name_en": (
+                f"Test Category {unique_value}"
+            ),
+        }
+
+        category_response = client.post(
+            "/categories",
+            json=category_data,
+        )
+
+        assert category_response.status_code == 201
+
+        category_id = category_response.json()["id"]
+
+        duplicate_response = client.post(
+            "/categories",
+            json=category_data,
+        )
+
+        assert duplicate_response.status_code == 409
+
+        update_response = client.patch(
+            f"/questions/{question_id}/category",
+            json={
+                "category_id": category_id,
+            },
+        )
+        update_data = update_response.json()
+
+        assert update_response.status_code == 200
+        assert update_data["question_id"] == question_id
+        assert (
+            update_data["category"]["id"]
+            == category_id
+        )
+
+        detail_response = client.get(
+            f"/questions/{question_id}"
+        )
+
+        assert detail_response.status_code == 200
+        assert (
+            detail_response.json()["category"]["id"]
+            == category_id
+        )
+    finally:
+        cleanup_category_test(
+            question_id=question_id,
+            category_id=category_id,
+        )
+
+
+def test_admin_can_create_category():
+    unique_value = uuid4().hex[:8]
+    category_id = None
+
+    try:
+        login_as_admin()
+
+        response = client.post(
+            "/categories",
+            json={
+                "name_tr": (
+                    f"Admin Test Kategorisi {unique_value}"
+                ),
+                "name_en": (
+                    f"Admin Test Category {unique_value}"
+                ),
+            },
+        )
+
+        assert response.status_code == 201
+
+        category_id = response.json()["id"]
+    finally:
+        cleanup_category_test(
+            category_id=category_id,
+        )
+
+
+def test_student_cannot_create_category():
+    login_as_student()
+
+    response = client.post(
+        "/categories",
+        json={
+            "name_tr": "Yetkisiz Test Kategorisi",
+            "name_en": "Unauthorized Test Category",
         },
     )
 

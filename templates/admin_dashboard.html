@@ -8,7 +8,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>Admin Dashboard | DAU Q&A Center</title>
+    <title>Admin Dashboard | EMU Q&A Center</title>
 
     <link
         rel="preconnect"
@@ -68,7 +68,8 @@
                     User Management
                 </button>
 
-                <button class="nav-item">
+                <button class="nav-item"
+                        id="admin-category-nav">
                     <span class="icon">
                         <i class="ph ph-folders"></i>
                     </span>
@@ -160,10 +161,8 @@
                         </p>
                     </div>
 
-                    <button
-                        class="primary-button"
-                        id="refresh-admin"
-                    >
+                    <button class="primary-button"
+                            id="refresh-admin">
                         <i class="ph ph-arrows-clockwise"></i>
                         Refresh Data
                     </button>
@@ -172,10 +171,8 @@
                 <section class="stats-grid admin-stats">
                     <article class="stat-card cyan">
                         <div class="stat-label">Users</div>
-                        <div
-                            class="stat-value"
-                            id="admin-user-count"
-                        >
+                        <div class="stat-value"
+                             id="admin-user-count">
                             0
                         </div>
                         <div class="stat-caption">
@@ -187,10 +184,8 @@
                         <div class="stat-label">
                             Total Questions
                         </div>
-                        <div
-                            class="stat-value"
-                            id="admin-question-count"
-                        >
+                        <div class="stat-value"
+                             id="admin-question-count">
                             0
                         </div>
                         <div class="stat-caption">
@@ -200,10 +195,8 @@
 
                     <article class="stat-card green">
                         <div class="stat-label">Answers</div>
-                        <div
-                            class="stat-value"
-                            id="admin-answer-count"
-                        >
+                        <div class="stat-value"
+                             id="admin-answer-count">
                             0
                         </div>
                         <div class="stat-caption">
@@ -213,10 +206,8 @@
 
                     <article class="stat-card yellow">
                         <div class="stat-label">Categories</div>
-                        <div
-                            class="stat-value"
-                            id="admin-category-count"
-                        >
+                        <div class="stat-value"
+                             id="admin-category-count">
                             0
                         </div>
                         <div class="stat-caption">
@@ -228,10 +219,8 @@
                         <div class="stat-label">
                             Knowledge Entries
                         </div>
-                        <div
-                            class="stat-value"
-                            id="admin-knowledge-count"
-                        >
+                        <div class="stat-value"
+                             id="admin-knowledge-count">
                             0
                         </div>
                         <div class="stat-caption">
@@ -349,18 +338,111 @@
                         </table>
                     </div>
                 </section>
+                <section class="admin-content-grid"
+                         id="admin-category-management-section">
+                    <article class="panel">
+                        <header class="panel-header">
+                            <h2>Add New Category</h2>
 
-                <div
-                    class="empty-state"
-                    id="admin-message"
-                    hidden
-                ></div>
+                            <i class="ph ph-tag"></i>
+                        </header>
+
+                        <div class="panel-body">
+                            <p>
+                                Create a bilingual category independently
+                                from student questions.
+                            </p>
+
+                            <div class="form-grid">
+                                <input class="input"
+                                       id="admin-new-category-tr"
+                                       type="text"
+                                       maxlength="150"
+                                       placeholder="Turkish category name">
+
+                                <input class="input"
+                                       id="admin-new-category-en"
+                                       type="text"
+                                       maxlength="150"
+                                       placeholder="English category name">
+                            </div>
+
+                            <div class="editor-actions">
+                                <button class="answer-button"
+                                        id="admin-create-category"
+                                        type="button">
+                                    <i class="ph ph-plus"></i>
+                                    Add Category
+                                </button>
+                            </div>
+
+                            <div class="empty-state"
+                                 id="admin-category-message"
+                                 hidden></div>
+                        </div>
+                    </article>
+
+                    <article class="panel">
+                        <header class="panel-header">
+                            <h2>Category Information</h2>
+
+                            <span class="tag"
+                                  id="admin-category-list-count">
+                                0 categories
+                            </span>
+                        </header>
+
+                        <div class="panel-body">
+                            <p>
+                                Categories created here become available
+                                in student forms and staff assignment lists.
+                            </p>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="panel admin-user-panel">
+                    <header class="panel-header">
+                        <h2>Question Category Assignment</h2>
+
+                        <span class="tag"
+                              id="admin-question-table-count">
+                            0 questions
+                        </span>
+                    </header>
+
+                    <div class="admin-table-wrapper">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Subject</th>
+                                    <th>Student</th>
+                                    <th>Current Category</th>
+                                    <th>New Category</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="admin-question-category-table">
+                                <tr>
+                                    <td colspan="6">
+                                        Loading questions...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                <div class="empty-state"
+                     id="admin-message"
+                     hidden></div>
             </main>
         </div>
     </div>
 
     <script
-        src="{{ url_for('static', path='/js/admin_dashboard.js') }}"
+        src="{{ url_for('static', path='/js/admin_dashboard.js') }}?v=3"
     ></script>
 </body>
 </html>

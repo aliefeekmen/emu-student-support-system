@@ -1,3 +1,8 @@
+const state = {
+    categories: [],
+    questions: [],
+};
+
 const elements = {
     userCount: document.querySelector(
         "#admin-user-count"
@@ -50,6 +55,42 @@ const elements = {
     message: document.querySelector(
         "#admin-message"
     ),
+
+    newCategoryTr: document.querySelector(
+        "#admin-new-category-tr"
+    ),
+
+    newCategoryEn: document.querySelector(
+        "#admin-new-category-en"
+    ),
+
+    createCategoryButton: document.querySelector(
+        "#admin-create-category"
+    ),
+
+    categoryMessage: document.querySelector(
+        "#admin-category-message"
+    ),
+
+    categoryListCount: document.querySelector(
+        "#admin-category-list-count"
+    ),
+
+    questionCategoryTable: document.querySelector(
+        "#admin-question-category-table"
+    ),
+
+    questionTableCount: document.querySelector(
+        "#admin-question-table-count"
+    ),
+
+    categoryNav: document.querySelector(
+        "#admin-category-nav"
+    ),
+
+    categoryManagementSection: document.querySelector(
+        "#admin-category-management-section"
+    ),
 };
 
 function escapeHtml(value) {
@@ -77,8 +118,17 @@ function formatDate(value) {
     return date.toLocaleString();
 }
 
-async function apiRequest(url) {
-    const response = await fetch(url);
+async function apiRequest(
+    url,
+    options = {}
+) {
+    const response = await fetch(url, {
+        headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {}),
+        },
+        ...options,
+    });
 
     let data = null;
 
@@ -208,6 +258,237 @@ async function loadUsers() {
         .join("");
 }
 
+async function loadCategories() {
+    state.categories = await apiRequest(
+        "/categories"
+    );
+
+    elements.categoryListCount.textContent =
+        `${state.categories.length} categories`;
+}
+
+function categoryOptions(
+    selectedCategoryId
+) {
+    return state.categories
+        .map(
+            (category) => `
+                <option
+                    value="${category.id}"
+                    ${
+                        category.id
+                            === selectedCategoryId
+                            ? "selected"
+                            : ""
+                    }
+                >
+                    ${escapeHtml(category.name_en)}
+                    /
+                    ${escapeHtml(category.name_tr)}
+                </option>
+            `
+        )
+        .join("");
+}
+
+async function loadQuestions() {
+    state.questions = await apiRequest(
+        "/questions?limit=100"
+    );
+
+    elements.questionTableCount.textContent =
+        `${state.questions.length} questions`;
+
+    renderQuestionCategoryTable();
+}
+
+function renderQuestionCategoryTable() {
+    if (state.questions.length === 0) {
+        elements.questionCategoryTable.innerHTML = `
+            <tr>
+                <td colspan="6">
+                    No questions found.
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    elements.questionCategoryTable.innerHTML =
+        state.questions
+            .map(
+                (question) => `
+                    <tr>
+                        <td>${question.id}</td>
+
+                        <td>
+                            ${escapeHtml(
+                                question.subject
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHtml(
+                                question.student_name
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHtml(
+                                question.category_en
+                                || question.category
+                            )}
+                        </td>
+
+                        <td>
+                            <select
+                                class="select"
+                                data-admin-category-select="${
+                                    question.id
+                                }"
+                            >
+                                ${categoryOptions(
+                                    question.category_id
+                                )}
+                            </select>
+                        </td>
+
+                        <td>
+                            <button
+                                class="secondary-button"
+                                type="button"
+                                data-admin-update-category="${
+                                    question.id
+                                }"
+                            >
+                                Update
+                            </button>
+                        </td>
+                    </tr>
+                `
+            )
+            .join("");
+
+    document
+        .querySelectorAll(
+            "[data-admin-update-category]"
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                "click",
+                () => {
+                    updateQuestionCategory(
+                        Number(
+                            button.dataset
+                                .adminUpdateCategory
+                        )
+                    );
+                }
+            );
+        });
+}
+
+async function createCategory() {
+    const nameTr =
+        elements.newCategoryTr.value.trim();
+
+    const nameEn =
+        elements.newCategoryEn.value.trim();
+
+    if (!nameTr || !nameEn) {
+        showCategoryMessage(
+            "Both Turkish and English category names are required.",
+            true
+        );
+
+        return;
+    }
+
+    elements.createCategoryButton.disabled = true;
+
+    try {
+        await apiRequest(
+            "/categories",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    name_tr: nameTr,
+                    name_en: nameEn,
+                }),
+            }
+        );
+
+        elements.newCategoryTr.value = "";
+        elements.newCategoryEn.value = "";
+
+        await Promise.all([
+            loadCategories(),
+            loadOverview(),
+        ]);
+
+        renderQuestionCategoryTable();
+
+        showCategoryMessage(
+            "Category created successfully."
+        );
+    } catch (error) {
+        showCategoryMessage(
+            error.message,
+            true
+        );
+    } finally {
+        elements.createCategoryButton.disabled =
+            false;
+    }
+}
+
+async function updateQuestionCategory(
+    questionId
+) {
+    const select = document.querySelector(
+        `[data-admin-category-select="${
+            questionId
+        }"]`
+    );
+
+    const categoryId = Number(
+        select?.value
+    );
+
+    if (!categoryId) {
+        showMessage(
+            "Please select a valid category.",
+            true
+        );
+
+        return;
+    }
+
+    try {
+        await apiRequest(
+            `/questions/${questionId}/category`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    category_id: categoryId,
+                }),
+            }
+        );
+
+        await loadQuestions();
+
+        showMessage(
+            `Question #${questionId} category updated successfully.`
+        );
+    } catch (error) {
+        showMessage(
+            error.message,
+            true
+        );
+    }
+}
+
 async function loadAdminDashboard() {
     elements.refreshButton.disabled = true;
     showMessage("Refreshing system data...");
@@ -216,7 +497,10 @@ async function loadAdminDashboard() {
         await Promise.all([
             loadOverview(),
             loadUsers(),
+            loadCategories(),
         ]);
+
+        await loadQuestions();
 
         showMessage(
             "Dashboard data updated successfully."
@@ -248,9 +532,47 @@ function showMessage(
     );
 }
 
+function showCategoryMessage(
+    message,
+    isError = false
+) {
+    elements.categoryMessage.hidden = false;
+    elements.categoryMessage.textContent =
+        message;
+
+    elements.categoryMessage.style.color =
+        isError ? "#d83b4f" : "#158657";
+}
+
 elements.refreshButton.addEventListener(
     "click",
     loadAdminDashboard
+);
+
+elements.createCategoryButton.addEventListener(
+    "click",
+    createCategory
+);
+
+elements.categoryNav.addEventListener(
+    "click",
+    () => {
+        document
+            .querySelectorAll(".navigation .nav-item")
+            .forEach((item) => {
+                item.classList.remove("active");
+            });
+
+        elements.categoryNav.classList.add(
+            "active"
+        );
+
+        elements.categoryManagementSection
+            .scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+    }
 );
 
 loadAdminDashboard();
