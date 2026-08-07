@@ -3,38 +3,26 @@
 <head>
     <meta charset="UTF-8">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
     <title>EMU Student Q&A Center</title>
 
-    <link
-        rel="preconnect"
-        href="https://fonts.googleapis.com"
-    >
+    <link rel="preconnect"
+          href="https://fonts.googleapis.com">
 
-    <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossorigin
-    >
+    <link rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossorigin>
 
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-    >
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet">
 
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"
-    >
+    <link rel="stylesheet"
+          href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
 
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', path='/css/dashboard.css') }}"
-    >
+    <link rel="stylesheet"
+          href="{{ url_for('static', path='/css/dashboard.css') }}">
 </head>
 
 <body data-user-id="{{ user.id }}">
@@ -257,18 +245,11 @@
                         <header class="panel-header">
                             <h2>Incoming Questions</h2>
 
-                            <i class="ph ph-funnel"></i>
-                        </header>
+                            <label class="question-filter-control"
+                                   for="status-filter">
+                                <i class="ph ph-funnel"></i>
 
-                        <div class="panel-body">
-                            <div class="search-row">
-                                <input class="input"
-                                       id="question-search"
-                                       type="search"
-                                       placeholder="Search questions...">
-
-                                <select class="select"
-                                        id="status-filter"
+                                <select id="status-filter"
                                         aria-label="Status filter">
                                     <option value="">All</option>
                                     <option value="open">Open</option>
@@ -278,8 +259,19 @@
                                     <option value="answered">
                                         Answered
                                     </option>
-                                    <option value="closed">Closed</option>
+                                    <option value="closed">
+                                        Closed
+                                    </option>
                                 </select>
+                            </label>
+                        </header>
+
+                        <div class="panel-body">
+                            <div class="search-row">
+                                <input class="input"
+                                       id="question-search"
+                                       type="search"
+                                       placeholder="Search questions...">
                             </div>
 
                             <div class="question-list"

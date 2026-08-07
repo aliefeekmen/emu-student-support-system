@@ -1209,3 +1209,44 @@ body.dark-mode .question-card.selected {
     width: 100%;
     justify-content: center;
 }
+
+.question-filter-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 10px;
+    color: var(--navy-800);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+    .question-filter-control:hover {
+        border-color: var(--blue-600);
+    }
+
+    .question-filter-control i {
+        font-size: 18px;
+        pointer-events: none;
+    }
+
+    .question-filter-control select {
+        min-width: 92px;
+        padding: 0;
+        color: var(--text);
+        background: transparent;
+        border: 0;
+        outline: 0;
+        cursor: pointer;
+    }
+
+    .question-filter-control:focus-within {
+        border-color: var(--blue-600);
+        box-shadow: 0 0 0 3px rgba(22, 116, 209, 0.12);
+    }
+
+.search-row #question-search {
+    width: 100%;
+}
