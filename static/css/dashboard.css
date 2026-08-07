@@ -1250,3 +1250,143 @@ body.dark-mode .question-card.selected {
 .search-row #question-search {
     width: 100%;
 }
+
+/* Clear visual boundaries for dashboard sections */
+.panel {
+    overflow: hidden;
+    border: 1.5px solid #c7d5e5;
+    box-shadow: 0 10px 28px rgba(13, 41, 76, 0.11), 0 2px 6px rgba(13, 41, 76, 0.05);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+    .panel:hover {
+        border-color: #a9bfd8;
+        box-shadow: 0 14px 34px rgba(13, 41, 76, 0.14), 0 3px 8px rgba(13, 41, 76, 0.06);
+    }
+
+.panel-header {
+    min-height: 52px;
+    background: linear-gradient( 180deg, #f9fbfe, #f1f6fb );
+    border-bottom: 2px solid #d5e1ee;
+}
+
+    .panel-header h2 {
+        position: relative;
+        padding-left: 12px;
+    }
+
+        .panel-header h2::before {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 4px;
+            height: 20px;
+            content: "";
+            background: var(--blue-600);
+            border-radius: 999px;
+            transform: translateY(-50%);
+        }
+
+.panel-body {
+    background: var(--surface);
+}
+
+.dashboard-grid,
+.admin-content-grid,
+.student-view-grid {
+    gap: 20px;
+}
+
+body.dark-mode .panel {
+    border-color: #40536d;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.16);
+}
+
+    body.dark-mode .panel:hover {
+        border-color: #58708f;
+        box-shadow: 0 15px 36px rgba(0, 0, 0, 0.34), 0 3px 10px rgba(0, 0, 0, 0.2);
+    }
+
+body.dark-mode .panel-header {
+    background: linear-gradient( 180deg, #202d43, #1b273b );
+    border-bottom-color: #40536d;
+}
+
+/* Navy top bar shared by all dashboards */
+.topbar,
+body.dark-mode .topbar {
+    color: white;
+    background: linear-gradient( 90deg, var(--navy-950), var(--navy-900) 55%, var(--navy-800) );
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 6px 20px rgba(6, 35, 71, 0.2);
+    backdrop-filter: none;
+}
+
+.topbar-left {
+    color: white;
+}
+
+    .topbar-left i {
+        color: #82d8ff;
+        font-size: 18px;
+    }
+
+.topbar .icon-button,
+.topbar .language-button,
+.topbar .logout-button,
+body.dark-mode .topbar .icon-button,
+body.dark-mode .topbar .language-button,
+body.dark-mode .topbar .logout-button {
+    color: white;
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+    .topbar .icon-button:hover,
+    .topbar .language-button:hover,
+    .topbar .logout-button:hover {
+        background: rgba(255, 255, 255, 0.17);
+        border-color: rgba(255, 255, 255, 0.38);
+    }
+
+.topbar .logout-button {
+    color: #ffd9df;
+}
+
+.topbar .profile {
+    padding-left: 15px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.topbar .profile-copy strong {
+    color: white;
+}
+
+.topbar .profile-copy span,
+body.dark-mode .topbar .profile-copy span {
+    color: #c4d5e8;
+}
+
+.topbar .avatar {
+    color: var(--navy-900);
+    background: white;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Slightly stronger section borders */
+.panel {
+    border: 2px solid #b5c8dc;
+    box-shadow: 0 12px 30px rgba(13, 41, 76, 0.14), 0 3px 8px rgba(13, 41, 76, 0.07);
+}
+
+    .panel:hover {
+        border-color: #8faac7;
+    }
+
+body.dark-mode .panel {
+    border-color: #526985;
+}
+
+    body.dark-mode .panel:hover {
+        border-color: #6d89aa;
+    }
