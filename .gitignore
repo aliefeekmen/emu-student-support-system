@@ -28,3 +28,5 @@ Thumbs.db
 
 # Uploaded question attachments
 uploads/
+
+database/*.sql

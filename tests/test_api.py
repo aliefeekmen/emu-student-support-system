@@ -211,7 +211,7 @@ def test_admin_overview_endpoint():
     data = response.json()
 
     assert response.status_code == 200
-    assert data["users"] == 3
+    assert data["users"] >= 3
     assert data["categories"] >= 31
     assert data["knowledge_entries"] == 769
 
@@ -522,3 +522,102 @@ def test_student_cannot_create_category():
     )
 
     assert response.status_code == 403
+
+
+
+def test_admin_can_create_user_and_update_role():
+    unique_value = uuid4().hex[:8]
+    user_id = None
+
+    try:
+        login_as_admin()
+
+        create_response = client.post(
+            "/admin/users",
+            json={
+                "university_id": (
+                    f"TEST-{unique_value}"
+                ),
+                "full_name": "Test User",
+                "email": (
+                    f"test-{unique_value}@demo.local"
+                ),
+                "password": "TestPassword123!",
+                "role": "student",
+            },
+        )
+
+        create_data = create_response.json()
+
+        assert create_response.status_code == 201
+        assert create_data["full_name"] == "Test User"
+        assert create_data["role"] == "student"
+
+        user_id = create_data["id"]
+
+        role_response = client.patch(
+            f"/admin/users/{user_id}/role",
+            json={
+                "role": "staff",
+            },
+        )
+
+        assert role_response.status_code == 200
+        assert role_response.json()["role"] == "staff"
+
+        users_response = client.get("/admin/users")
+        users = users_response.json()
+
+        created_user = next(
+            user
+            for user in users
+            if user["id"] == user_id
+        )
+
+        assert created_user["role"] == "staff"
+    finally:
+        if user_id is not None:
+            with sqlite3.connect(
+                database_path
+            ) as connection:
+                connection.execute(
+                    """
+                    DELETE FROM users
+                    WHERE id = ?
+                    """,
+                    (user_id,),
+                )
+                connection.commit()
+
+
+def test_staff_cannot_create_user():
+    login_as_staff()
+
+    response = client.post(
+        "/admin/users",
+        json={
+            "university_id": "UNAUTHORIZED-TEST",
+            "full_name": "Unauthorized User",
+            "email": "unauthorized@demo.local",
+            "password": "TestPassword123!",
+            "role": "student",
+        },
+    )
+
+    assert response.status_code == 403
+
+
+def test_admin_cannot_change_own_role():
+    login_as_admin()
+
+    response = client.patch(
+        "/admin/users/3/role",
+        json={
+            "role": "staff",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "You cannot change your own role.",
+    }

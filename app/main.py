@@ -1186,6 +1186,256 @@ def admin_overview(request: Request):
         "categories": category_count,
         "knowledge_entries": knowledge_count,
     }
+class AdminUserCreate(BaseModel):
+    university_id: str | None = Field(
+        default=None,
+        max_length=50,
+    )
+    full_name: str = Field(
+        min_length=2,
+        max_length=100,
+    )
+    email: str = Field(
+        min_length=5,
+        max_length=150,
+    )
+    password: str = Field(
+        min_length=8,
+        max_length=128,
+    )
+    role: str = Field(
+        min_length=3,
+        max_length=20,
+    )
+
+
+class AdminUserRoleUpdate(BaseModel):
+    role: str = Field(
+        min_length=3,
+        max_length=20,
+    )
+
+
+@app.post("/admin/users", status_code=201)
+def create_admin_user(
+    request: Request,
+    new_user: AdminUserCreate,
+):
+    require_session_user(
+        request,
+        allowed_roles=("admin",),
+    )
+
+    full_name = new_user.full_name.strip()
+    email = new_user.email.strip().lower()
+    role_name = new_user.role.strip().lower()
+
+    university_id = (
+        new_user.university_id.strip()
+        if new_user.university_id
+        else None
+    )
+
+    if not full_name:
+        raise HTTPException(
+            status_code=400,
+            detail="Full name is required.",
+        )
+
+    if "@" not in email:
+        raise HTTPException(
+            status_code=400,
+            detail="A valid email address is required.",
+        )
+
+    if role_name not in (
+        "student",
+        "staff",
+        "admin",
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid user role.",
+        )
+
+    password_hash = bcrypt.hashpw(
+        new_user.password.encode("utf-8"),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM roles
+            WHERE name = ?
+            """,
+            (role_name,),
+        )
+
+        role_record = cursor.fetchone()
+
+        if role_record is None:
+            raise HTTPException(
+                status_code=400,
+                detail="User role was not found.",
+            )
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE lower(email) = lower(?)
+            """,
+            (email,),
+        )
+
+        if cursor.fetchone() is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Email address is already in use.",
+            )
+
+        if university_id:
+            cursor.execute(
+                """
+                SELECT id
+                FROM users
+                WHERE university_id = ?
+                """,
+                (university_id,),
+            )
+
+            if cursor.fetchone() is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="University ID is already in use.",
+                )
+
+        cursor.execute(
+            """
+            INSERT INTO users (
+                university_id,
+                full_name,
+                email,
+                password_hash,
+                role_id
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                university_id,
+                full_name,
+                email,
+                password_hash,
+                role_record[0],
+            ),
+        )
+
+        user_id = cursor.lastrowid
+        connection.commit()
+
+    return {
+        "id": user_id,
+        "university_id": university_id,
+        "full_name": full_name,
+        "email": email,
+        "role": role_name,
+        "is_active": True,
+        "message": "User created successfully.",
+    }
+
+
+@app.patch("/admin/users/{user_id}/role")
+def update_admin_user_role(
+    request: Request,
+    user_id: int,
+    role_update: AdminUserRoleUpdate,
+):
+    current_user = require_session_user(
+        request,
+        allowed_roles=("admin",),
+    )
+
+    if user_id == current_user["id"]:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot change your own role.",
+        )
+
+    role_name = role_update.role.strip().lower()
+
+    if role_name not in (
+        "student",
+        "staff",
+        "admin",
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid user role.",
+        )
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE id = ?
+            """,
+            (user_id,),
+        )
+
+        if cursor.fetchone() is None:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found.",
+            )
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM roles
+            WHERE name = ?
+            """,
+            (role_name,),
+        )
+
+        role_record = cursor.fetchone()
+
+        if role_record is None:
+            raise HTTPException(
+                status_code=400,
+                detail="User role was not found.",
+            )
+
+        cursor.execute(
+            """
+            UPDATE users
+            SET role_id = ?
+            WHERE id = ?
+            """,
+            (
+                role_record[0],
+                user_id,
+            ),
+        )
+
+        connection.commit()
+
+    return {
+        "id": user_id,
+        "role": role_name,
+        "message": "User role updated successfully.",
+    }
+
+
+
 @app.get("/admin/users")
 def admin_users(request: Request):
     require_session_user(

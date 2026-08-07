@@ -44,6 +44,7 @@ The following work has been completed:
 - Administrator dashboard
 - Independent category creation for staff and administrators
 - Question category assignment by staff and administrators
+- Administrator user creation and role management
 - Frontend and backend integration
 - Automated API and interface tests
 - Technical documentation
@@ -319,6 +320,8 @@ An administrator can:
 - Log in to the administrator dashboard
 - View system statistics
 - View user information
+- Create new student, staff, and administrator accounts
+- Change the role of an existing user
 - View question status counts
 - View the number of answers
 - View category and knowledge-base statistics
@@ -372,6 +375,8 @@ Users cannot access dashboards or operations that do not belong to their roles.
 
 - `GET /admin/overview` - View administrator statistics
 - `GET /admin/users` - List system users
+- `POST /admin/users` - Create a new user
+- `PATCH /admin/users/{user_id}/role` - Change a user's role
 
 Protected endpoints require a valid session and the correct user role.
 
@@ -408,7 +413,7 @@ python -m pytest -v
 Current result:
 
 ```text
-21 passed
+24 passed
 ```
 
 The tests cover:
@@ -424,6 +429,9 @@ The tests cover:
 - Expert dashboard
 - Administrator dashboard
 - Administrator API endpoints
+- Administrator user creation
+- User role updates
+- Unauthorized user management restrictions
 - Secure attachment upload and access restrictions
 - Category creation by staff and administrators
 - Question category assignment
@@ -448,7 +456,7 @@ The tests cover:
 - Compare model performance
 - Complete Turkish and English interface switching
 - Add automatic question category classification
-- Add password reset and account management
+- Add password reset and active/inactive account controls
 - Add audit logs
 - Improve production security settings
 - Move from SQLite to PostgreSQL if required

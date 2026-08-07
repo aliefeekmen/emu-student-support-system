@@ -3,6 +3,10 @@ const state = {
     questions: [],
 };
 
+const CURRENT_USER_ID = Number(
+    document.body.dataset.userId
+);
+
 const elements = {
     userCount: document.querySelector(
         "#admin-user-count"
@@ -91,6 +95,42 @@ const elements = {
     categoryManagementSection: document.querySelector(
         "#admin-category-management-section"
     ),
+
+    userNav: document.querySelector(
+        "#admin-user-nav"
+    ),
+
+    userManagementSection: document.querySelector(
+        "#admin-user-management-section"
+    ),
+
+    newUserName: document.querySelector(
+        "#admin-new-user-name"
+    ),
+
+    newUserUniversityId: document.querySelector(
+        "#admin-new-user-university-id"
+    ),
+
+    newUserEmail: document.querySelector(
+        "#admin-new-user-email"
+    ),
+
+    newUserPassword: document.querySelector(
+        "#admin-new-user-password"
+    ),
+
+    newUserRole: document.querySelector(
+        "#admin-new-user-role"
+    ),
+
+    createUserButton: document.querySelector(
+        "#admin-create-user"
+    ),
+
+    userMessage: document.querySelector(
+        "#admin-user-message"
+    ),
 };
 
 function escapeHtml(value) {
@@ -139,10 +179,24 @@ async function apiRequest(
     }
 
     if (!response.ok) {
-        throw new Error(
-            data?.detail
-            || "The request could not be completed."
-        );
+        let message =
+            "The request could not be completed.";
+
+        if (typeof data?.detail === "string") {
+            message = data.detail;
+        } else if (Array.isArray(data?.detail)) {
+            message = data.detail
+                .map((item) => {
+                    const field = Array.isArray(item.loc)
+                        ? item.loc[item.loc.length - 1]
+                        : "field";
+
+                    return `${field}: ${item.msg}`;
+                })
+                .join(" | ");
+        }
+
+        throw new Error(message);
     }
 
     return data;
@@ -192,7 +246,7 @@ async function loadUsers() {
     if (users.length === 0) {
         elements.userTable.innerHTML = `
             <tr>
-                <td colspan="7">
+                <td colspan="8">
                     No users found.
                 </td>
             </tr>
@@ -209,8 +263,8 @@ async function loadUsers() {
 
                     <td>
                         ${escapeHtml(
-                            user.university_id || "-"
-                        )}
+                user.university_id || "-"
+            )}
                     </td>
 
                     <td>
@@ -222,40 +276,201 @@ async function loadUsers() {
                     </td>
 
                     <td>
-                        <span
-                            class="role-badge ${escapeHtml(
-                                user.role
-                            )}"
+                        <select
+                            class="select"
+                            data-admin-user-role="${user.id}"
+                            ${user.id === CURRENT_USER_ID
+                    ? "disabled"
+                    : ""
+                }
                         >
-                            ${escapeHtml(user.role)}
-                        </span>
+                            ${userRoleOptions(user.role)}
+                        </select>
                     </td>
 
                     <td>
                         <span
-                            class="account-status ${
-                                user.is_active
-                                    ? "active"
-                                    : "inactive"
-                            }"
+                            class="account-status ${user.is_active
+                    ? "active"
+                    : "inactive"
+                }"
                         >
-                            ${
-                                user.is_active
-                                    ? "Active"
-                                    : "Inactive"
-                            }
+                            ${user.is_active
+                    ? "Active"
+                    : "Inactive"
+                }
                         </span>
                     </td>
 
                     <td>
                         ${escapeHtml(
-                            formatDate(user.created_at)
-                        )}
+                    formatDate(user.created_at)
+                )}
+                    </td>
+
+                    <td>
+                        <button
+                            class="secondary-button"
+                            type="button"
+                            data-admin-update-user-role="${user.id}"
+                            ${user.id === CURRENT_USER_ID
+                    ? "disabled"
+                    : ""
+                }
+                        >
+                            Update Role
+                        </button>
                     </td>
                 </tr>
             `
         )
         .join("");
+
+    document
+        .querySelectorAll(
+            "[data-admin-update-user-role]"
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                "click",
+                () => {
+                    updateUserRole(
+                        Number(
+                            button.dataset
+                                .adminUpdateUserRole
+                        )
+                    );
+                }
+            );
+        });
+}
+
+function userRoleOptions(selectedRole) {
+    return ["student", "staff", "admin"]
+        .map(
+            (role) => `
+                <option
+                    value="${role}"
+                    ${role === selectedRole
+                    ? "selected"
+                    : ""
+                }
+                >
+                    ${role.charAt(0).toUpperCase()
+                + role.slice(1)}
+                </option>
+            `
+        )
+        .join("");
+}
+
+async function createUser() {
+    const fullName =
+        elements.newUserName.value.trim();
+
+    const universityId =
+        elements.newUserUniversityId.value.trim();
+
+    const email =
+        elements.newUserEmail.value.trim();
+
+    const password =
+        elements.newUserPassword.value;
+
+    const role = elements.newUserRole.value;
+
+    if (!fullName || !email || !password) {
+        showUserMessage(
+            "Full name, email, and password are required.",
+            true
+        );
+
+        return;
+    }
+
+    elements.createUserButton.disabled = true;
+
+    try {
+        await apiRequest(
+            "/admin/users",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    university_id:
+                        universityId || null,
+                    full_name: fullName,
+                    email,
+                    password,
+                    role,
+                }),
+            }
+        );
+
+        elements.newUserName.value = "";
+        elements.newUserUniversityId.value = "";
+        elements.newUserEmail.value = "";
+        elements.newUserPassword.value = "";
+        elements.newUserRole.value = "student";
+
+        await Promise.all([
+            loadUsers(),
+            loadOverview(),
+        ]);
+
+        showUserMessage(
+            "User created successfully."
+        );
+    } catch (error) {
+        showUserMessage(
+            error.message,
+            true
+        );
+    } finally {
+        elements.createUserButton.disabled = false;
+    }
+}
+
+async function updateUserRole(userId) {
+    const select = document.querySelector(
+        `[data-admin-user-role="${userId}"]`
+    );
+
+    if (!select) {
+        return;
+    }
+
+    try {
+        await apiRequest(
+            `/admin/users/${userId}/role`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    role: select.value,
+                }),
+            }
+        );
+
+        await loadUsers();
+
+        showUserMessage(
+            "User role updated successfully."
+        );
+    } catch (error) {
+        showUserMessage(
+            error.message,
+            true
+        );
+    }
+}
+
+function showUserMessage(
+    message,
+    isError = false
+) {
+    elements.userMessage.hidden = false;
+    elements.userMessage.textContent = message;
+    elements.userMessage.style.color =
+        isError ? "#d83b4f" : "#158657";
 }
 
 async function loadCategories() {
@@ -275,12 +490,11 @@ function categoryOptions(
             (category) => `
                 <option
                     value="${category.id}"
-                    ${
-                        category.id
-                            === selectedCategoryId
-                            ? "selected"
-                            : ""
-                    }
+                    ${category.id
+                    === selectedCategoryId
+                    ? "selected"
+                    : ""
+                }
                 >
                     ${escapeHtml(category.name_en)}
                     /
@@ -324,33 +538,32 @@ function renderQuestionCategoryTable() {
 
                         <td>
                             ${escapeHtml(
-                                question.subject
-                            )}
+                    question.subject
+                )}
                         </td>
 
                         <td>
                             ${escapeHtml(
-                                question.student_name
-                            )}
+                    question.student_name
+                )}
                         </td>
 
                         <td>
                             ${escapeHtml(
-                                question.category_en
-                                || question.category
-                            )}
+                    question.category_en
+                    || question.category
+                )}
                         </td>
 
                         <td>
                             <select
                                 class="select"
-                                data-admin-category-select="${
-                                    question.id
-                                }"
+                                data-admin-category-select="${question.id
+                    }"
                             >
                                 ${categoryOptions(
-                                    question.category_id
-                                )}
+                        question.category_id
+                    )}
                             </select>
                         </td>
 
@@ -358,9 +571,8 @@ function renderQuestionCategoryTable() {
                             <button
                                 class="secondary-button"
                                 type="button"
-                                data-admin-update-category="${
-                                    question.id
-                                }"
+                                data-admin-update-category="${question.id
+                    }"
                             >
                                 Update
                             </button>
@@ -447,8 +659,7 @@ async function updateQuestionCategory(
     questionId
 ) {
     const select = document.querySelector(
-        `[data-admin-category-select="${
-            questionId
+        `[data-admin-category-select="${questionId
         }"]`
     );
 
@@ -552,6 +763,30 @@ elements.refreshButton.addEventListener(
 elements.createCategoryButton.addEventListener(
     "click",
     createCategory
+);
+
+elements.createUserButton.addEventListener(
+    "click",
+    createUser
+);
+
+elements.userNav.addEventListener(
+    "click",
+    () => {
+        document
+            .querySelectorAll(".navigation .nav-item")
+            .forEach((item) => {
+                item.classList.remove("active");
+            });
+
+        elements.userNav.classList.add("active");
+
+        elements.userManagementSection
+            .scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+    }
 );
 
 elements.categoryNav.addEventListener(
