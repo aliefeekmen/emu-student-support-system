@@ -30,15 +30,15 @@ AI model training and the official train/test split remain future work. The `ai_
 ## Project Structure
 
 ```text
-dau-chatbot/
+emu-chatbot/
 |-- app/
 |   |-- database.py
 |   `-- main.py
 |-- data/
 |   `-- EMU_QA_Master_Privacy_Cleaned_744.csv
 |-- database/
-|   |-- dau_chatbot.db
-|   `-- dau_chatbot.sql
+|   |-- emu_chatbot.db
+|   `-- emu_chatbot.sql
 |-- docs/
 |   |-- data_analysis_report.md
 |   |-- database_schema.md
@@ -80,7 +80,7 @@ Replace the example secret in `.env` with a long private value:
 SESSION_SECRET=replace-with-a-long-random-secret
 ```
 
-The delivered `database\dau_chatbot.db` is already imported and migrated. Validate it:
+The delivered `database\emu_chatbot.db` is already imported and migrated. Validate it:
 
 ```bat
 python scripts\validate_database.py
@@ -222,4 +222,4 @@ Coverage includes authentication, role restrictions, the 744-record knowledge ba
 
 ## Repository
 
-[GitHub repository](https://github.com/aliefeekmen/dau-student-support-system)
+[GitHub repository](https://github.com/aliefeekmen/emu-student-support-system)

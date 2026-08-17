@@ -58,7 +58,7 @@ Foreign key errors: 0
 
 ## SQL Restore Check
 
-`database/dau_chatbot.sql` was restored into a blank SQLite file.
+`database/emu_chatbot.sql` was restored into a blank SQLite file.
 
 ```text
 Schema version: 2

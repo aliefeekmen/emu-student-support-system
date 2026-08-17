@@ -35,7 +35,7 @@ if not session_secret:
     raise RuntimeError(
         "SESSION_SECRET environment variable is required."
     )
-database_path = project_folder / "database" / "dau_chatbot.db"
+database_path = project_folder / "database" / "emu_chatbot.db"
 uploads_path = project_folder / "uploads"
 uploads_path.mkdir(parents=True, exist_ok=True)
 
@@ -87,7 +87,7 @@ def require_session_user(
 @app.get("/")
 def root():
     return {
-        "message": "DAU Student Support API is running."
+        "message": "EMU Student Support API is running."
     }
 
 

@@ -5,8 +5,8 @@ import sqlite3
 
 
 project_folder = Path(__file__).resolve().parent.parent
-database_path = project_folder / "database" / "dau_chatbot.db"
-output_path = project_folder / "database" / "dau_chatbot.sql"
+database_path = project_folder / "database" / "emu_chatbot.db"
+output_path = project_folder / "database" / "emu_chatbot.sql"
 
 
 with sqlite3.connect(database_path) as connection:

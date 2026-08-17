@@ -5,7 +5,7 @@ import bcrypt
 
 
 project_folder = Path(__file__).resolve().parent.parent
-database_path = project_folder / "database" / "dau_chatbot.db"
+database_path = project_folder / "database" / "emu_chatbot.db"
 
 demo_users = [
     {

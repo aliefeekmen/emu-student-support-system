@@ -534,7 +534,7 @@ def parse_args() -> argparse.Namespace:
     project_folder = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(
         description=(
-            "Upgrade the existing DAU chatbot SQLite database "
+            "Upgrade the existing EMU chatbot SQLite database "
             "to schema version 2."
         )
     )
@@ -544,7 +544,7 @@ def parse_args() -> argparse.Namespace:
         default=(
             project_folder
             / "database"
-            / "dau_chatbot.db"
+            / "emu_chatbot.db"
         ),
     )
     parser.add_argument(

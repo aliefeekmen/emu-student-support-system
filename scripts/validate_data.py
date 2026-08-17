@@ -4,8 +4,8 @@ import pandas as pd
 
 
 project_folder = Path(__file__).resolve().parent.parent
-raw_path = project_folder / "data" / "Dau_chatbot_Raw_dataset.csv"
-cleaned_path = project_folder / "data" / "Dau_chatbot_Cleaned_dataset.csv"
+raw_path = project_folder / "data" / "EMU_chatbot_Raw_dataset.csv"
+cleaned_path = project_folder / "data" / "EMU_chatbot_Cleaned_dataset.csv"
 
 raw_df = pd.read_csv(raw_path, encoding="utf-8-sig")
 cleaned_df = pd.read_csv(cleaned_path, encoding="utf-8-sig")

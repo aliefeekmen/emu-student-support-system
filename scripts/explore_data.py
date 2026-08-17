@@ -4,7 +4,7 @@ import pandas as pd
 
 
 project_folder = Path(__file__).resolve().parent.parent
-dataset_path = project_folder / "data" / "Dau_chatbot_Raw_dataset.csv"
+dataset_path = project_folder / "data" / "EMU_chatbot_Raw_dataset.csv"
 
 df = pd.read_csv(dataset_path, encoding="utf-8-sig")
 

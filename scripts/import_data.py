@@ -10,7 +10,7 @@ csv_path = (
     / "data"
     / "EMU_QA_Master_Privacy_Cleaned_744.csv"
 )
-database_path = project_folder / "database" / "dau_chatbot.db"
+database_path = project_folder / "database" / "emu_chatbot.db"
 
 df = pd.read_csv(csv_path, encoding="utf-8-sig")
 
