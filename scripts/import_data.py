@@ -5,10 +5,41 @@ import pandas as pd
 
 
 project_folder = Path(__file__).resolve().parent.parent
-csv_path = project_folder / "data" / "Dau_chatbot_Cleaned_dataset.csv"
+csv_path = (
+    project_folder
+    / "data"
+    / "EMU_QA_Master_Privacy_Cleaned_744.csv"
+)
 database_path = project_folder / "database" / "dau_chatbot.db"
 
 df = pd.read_csv(csv_path, encoding="utf-8-sig")
+
+required_columns = {
+    "id",
+    "question",
+    "answer",
+    "category_tr",
+    "category_en",
+    "language",
+}
+
+missing_columns = required_columns.difference(df.columns)
+
+if missing_columns:
+    raise ValueError(
+        "Missing privacy-clean dataset columns: "
+        + ", ".join(sorted(missing_columns))
+    )
+
+if len(df) != 744:
+    raise ValueError(
+        f"Expected 744 privacy-clean records, found {len(df)}."
+    )
+
+if df[list(required_columns)].isna().any().any():
+    raise ValueError(
+        "Privacy-clean dataset contains missing required values."
+    )
 
 connection = sqlite3.connect(database_path)
 connection.execute("PRAGMA foreign_keys = ON")
@@ -29,7 +60,7 @@ try:
     )
 
     category_rows = (
-        df[["Kategori (TR)", "Kategori (EN)"]]
+        df[["category_tr", "category_en"]]
         .drop_duplicates()
         .values
         .tolist()
@@ -72,22 +103,25 @@ try:
 
     for _, row in df.iterrows():
         category_key = (
-            row["Kategori (TR)"],
-            row["Kategori (EN)"],
+            row["category_tr"],
+            row["category_en"],
         )
 
         category_id = category_ids[category_key]
-        language_id = language_ids[row["Dil"]]
+        language_id = language_ids[row["language"]]
 
         knowledge_entries.append(
             (
-                int(row["ID"]),
-                row["Soru"],
-                row["Cevap"],
+                int(row["id"]),
+                row["question"],
+                row["answer"],
                 category_id,
                 language_id,
             )
         )
+
+    cursor.execute("PRAGMA secure_delete = ON")
+    cursor.execute("DELETE FROM knowledge_entries")
 
     cursor.executemany(
         """
@@ -99,11 +133,6 @@ try:
             language_id
         )
         VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-            question = excluded.question,
-            answer = excluded.answer,
-            category_id = excluded.category_id,
-            language_id = excluded.language_id
         """,
         knowledge_entries,
     )
@@ -124,6 +153,9 @@ cursor.execute("SELECT COUNT(*) FROM knowledge_entries")
 entry_count = cursor.fetchone()[0]
 
 connection.close()
+
+with sqlite3.connect(database_path) as vacuum_connection:
+    vacuum_connection.execute("VACUUM")
 
 print("Data imported successfully.")
 print("Languages:", language_count)

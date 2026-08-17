@@ -1,134 +1,56 @@
 # EMU Student Support and Institutional Q&A System
 
-This project was developed for the Eastern Mediterranean University summer internship project.
+This FastAPI application provides role-based student support workflows for Eastern Mediterranean University. Students submit questions and attachments, staff members assign and answer questions, and administrators manage users, categories, subcategories, and audit records.
 
-The system stores student questions and official staff answers in a central database. It provides role-based web dashboards and a FastAPI backend for managing student questions, institutional Q&A records, categories, answers, and attachments.
+The included database uses schema version 2 and the approved privacy-clean institutional Q&A master dataset.
 
-The system is also prepared for future AI-supported answer suggestions.
+## Current Status
 
-## Project Goals
+- 744 privacy-clean knowledge-base records
+- 603 Turkish and 141 English records
+- 31 dataset categories
+- Student, staff, and administrator dashboards
+- Session authentication and role-based authorization
+- Question assignment history and answered timestamps
+- Attachment metadata and secure download checks
+- Administrator-only category and subcategory creation
+- Audit logging for authentication and important write operations
+- 30 automated tests passing
 
-- Explore and clean the provided Q&A dataset
-- Normalize category and language information
-- Design a relational database
-- Create an institutional question-answer memory
-- Allow students to submit and track questions
-- Allow students to upload attachments with their questions
-- Allow questions to be assigned to staff members
-- Allow staff members to answer questions
-- Allow staff and administrators to create categories
-- Allow staff and administrators to update question categories
-- Provide separate student, staff, and administrator dashboards
-- Protect system operations with authentication and authorization
-- Prepare the system for future AI integration
+AI model training and the official train/test split remain future work. The `ai_suggestions` table is ready for later integration.
 
-## Current Phase
+## Main Technologies
 
-The following work has been completed:
-
-- Dataset exploration
-- Text cleaning and normalization
-- Missing category correction
-- Category name standardization
-- Relational database design
-- CSV data import
-- Database validation
-- FastAPI backend setup
-- Knowledge-base searching and filtering
-- Student question and staff answer workflow
-- Secure question attachment upload and download
-- Session-based authentication
-- Role-based authorization
-- Student dashboard
-- Expert dashboard
-- Administrator dashboard
-- Independent category creation for staff and administrators
-- Question category assignment by staff and administrators
-- Administrator user creation and role management
-- Frontend and backend integration
-- Automated API and interface tests
-- Technical documentation
-
-The official train/test split and AI model testing will be added in a later phase.
-
-## Dataset Summary
-
-- Total records: 769
-- Turkish records: 654
-- English records: 115
-- Original normalized categories: 31
-- Missing values after cleaning: 0
-- Fully duplicated rows: 0
-- Duplicated questions after text normalization: 121
-
-Dataset columns:
-
-- `ID`
-- `Soru`
-- `Cevap`
-- `Kategori (TR)`
-- `Kategori (EN)`
-- `Dil`
-
-Duplicate questions are preserved because different records may contain useful category, language, or answer information. They can be reviewed again when the official train/test split is provided.
-
-The application can contain more than 31 categories because authorized staff and administrators can create new categories.
-
-## Technologies
-
-- Python
-- Pandas
-- FastAPI
-- SQLite
-- Uvicorn
-- bcrypt
-- Jinja2
-- HTML
-- CSS
-- JavaScript
-- Pytest
-- HTTPX
-- python-dotenv
-- itsdangerous
-- python-multipart
+- Python, FastAPI, Uvicorn, Pydantic
+- SQLite and Pandas
+- Jinja2, HTML, CSS, JavaScript
+- bcrypt and signed sessions
+- Pytest and HTTPX
 
 ## Project Structure
 
 ```text
 dau-chatbot/
 |-- app/
+|   |-- database.py
 |   `-- main.py
 |-- data/
-|   |-- Dau_chatbot_Raw_dataset.csv
-|   `-- Dau_chatbot_Cleaned_dataset.csv
+|   `-- EMU_QA_Master_Privacy_Cleaned_744.csv
 |-- database/
-|   `-- dau_chatbot.db
+|   |-- dau_chatbot.db
+|   `-- dau_chatbot.sql
 |-- docs/
 |   |-- data_analysis_report.md
-|   `-- database_schema.md
+|   |-- database_schema.md
+|   `-- verification_report.md
 |-- scripts/
-|   |-- clean_data.py
 |   |-- create_database.py
-|   |-- explore_data.py
 |   |-- import_data.py
-|   |-- inspect_database.py
-|   |-- inspect_issues.py
-|   |-- normalize_database_categories.py
+|   |-- migrate_database.py
 |   |-- seed_demo_users.py
-|   |-- validate_data.py
 |   `-- validate_database.py
 |-- static/
-|   |-- css/
-|   |   `-- dashboard.css
-|   `-- js/
-|       |-- admin_dashboard.js
-|       |-- dashboard.js
-|       `-- student_dashboard.js
 |-- templates/
-|   |-- admin_dashboard.html
-|   |-- dashboard.html
-|   |-- login.html
-|   `-- student_dashboard.html
 |-- tests/
 |   `-- test_api.py
 |-- uploads/
@@ -138,261 +60,124 @@ dau-chatbot/
 `-- requirements.txt
 ```
 
-The dataset files, generated database, uploaded files, virtual environment, and real `.env` file are excluded from Git.
+The delivery archive does not contain the real `.env`, Git metadata, caches, legacy datasets, or the legacy database backup.
 
-## Database Tables
+## Quick Start on Windows
 
-The relational database contains the following tables:
-
-- `languages`
-- `categories`
-- `knowledge_entries`
-- `roles`
-- `users`
-- `questions`
-- `answers`
-- `attachments`
-- `ai_suggestions`
-
-The `knowledge_entries` table stores the cleaned institutional Q&A dataset.
-
-The `questions`, `answers`, and `attachments` tables support the live student and staff workflow.
-
-The `ai_suggestions` table is prepared for future AI-supported answer generation.
-
-## Installation
-
-### 1. Clone the repository
-
-```bat
-git clone https://github.com/aliefeekmen/dau-student-support-system.git
-cd dau-student-support-system
-```
-
-### 2. Create a virtual environment
+From the project directory:
 
 ```bat
 python -m venv venv
-```
-
-### 3. Activate the virtual environment on Windows
-
-```bat
 venv\Scripts\activate
-```
-
-### 4. Install the required packages
-
-```bat
 python -m pip install -r requirements.txt
-```
-
-### 5. Create the environment file
-
-Copy the example file:
-
-```bat
 copy .env.example .env
-```
-
-Open the new file:
-
-```bat
 notepad .env
 ```
 
-Replace the example value with a long and private random value:
+Replace the example secret in `.env` with a long private value:
 
 ```env
-SESSION_SECRET=replace-with-your-own-long-random-secret
+SESSION_SECRET=replace-with-a-long-random-secret
 ```
 
-The real `.env` file must not be uploaded to GitHub.
-
-## Dataset and Database Setup
-
-Place the raw dataset inside the `data` directory with the following name:
-
-```text
-Dau_chatbot_Raw_dataset.csv
-```
-
-Explore the raw dataset:
-
-```bat
-python scripts\explore_data.py
-```
-
-Clean and normalize the dataset:
-
-```bat
-python scripts\clean_data.py
-```
-
-Validate the cleaned dataset:
-
-```bat
-python scripts\validate_data.py
-```
-
-Create the database:
-
-```bat
-python scripts\create_database.py
-```
-
-Import the cleaned dataset:
-
-```bat
-python scripts\import_data.py
-```
-
-Validate the database:
+The delivered `database\dau_chatbot.db` is already imported and migrated. Validate it:
 
 ```bat
 python scripts\validate_database.py
 ```
 
-Create the development-only demo users:
-
-```bat
-python scripts\seed_demo_users.py
-```
-
-## Running the System
-
-Start the FastAPI development server:
+Start the application:
 
 ```bat
 python -m uvicorn app.main:app --reload
 ```
 
-Open the login page:
+Open:
 
-```text
-http://127.0.0.1:8000/login
+- Login: `http://127.0.0.1:8000/login`
+- API documentation: `http://127.0.0.1:8000/docs`
+
+## Rebuilding a Fresh Database
+
+The privacy-clean CSV is the only dataset used by the import script:
+
+```bat
+python scripts\create_database.py
+python scripts\import_data.py
+python scripts\seed_demo_users.py
+python scripts\validate_database.py
 ```
 
-Swagger API documentation:
+`import_data.py` requires exactly 744 complete records and validates its required columns before importing.
 
-```text
-http://127.0.0.1:8000/docs
+## Migrating an Older Project Database
+
+For an existing schema-v1 database, run:
+
+```bat
+python scripts\migrate_database.py
+python scripts\validate_database.py
 ```
 
-The server must remain running while the website or API is being used.
+The migration creates a timestamped backup by default, is safe to rerun, sets `PRAGMA user_version = 2`, and checks database integrity and foreign keys. Use `--skip-backup` only when a separate verified backup already exists.
 
-## User Roles
+## Roles and Permissions
 
 ### Student
 
-A student can:
-
-- Log in to the student dashboard
-- Submit a new question
-- Select a question category and language
-- Upload an allowed attachment of up to 5 MB
-- View and download their own question attachments
-- View their own questions
-- Search their own questions
-- View question status
-- View official staff answers
+- Submit a question for their own account
+- Select a category and optional subcategory
+- Upload an allowed attachment up to 5 MB
+- View their own questions, attachments, statuses, and answers
 
 ### Staff
 
-A staff member can:
-
-- Log in to the expert dashboard
-- View incoming student questions
-- Search and filter questions
-- View question and student information
-- View and download student attachments
-- Search similar institutional Q&A records
+- View and search incoming questions
+- View student attachments and similar knowledge entries
 - Assign a question to themselves
-- Answer assigned questions
-- View answered questions
-- Create bilingual categories independently
-- Update the category of a selected question
+- Update a question to an existing category
+- Answer an assigned question
 
 ### Administrator
 
-An administrator can:
+- View system statistics and audit logs
+- Create users and update roles
+- Create bilingual categories with description and responsible unit
+- Create bilingual subcategories
+- Assign existing categories to questions
 
-- Log in to the administrator dashboard
-- View system statistics
-- View user information
-- Create new student, staff, and administrator accounts
-- Change the role of an existing user
-- View question status counts
-- View the number of answers
-- View category and knowledge-base statistics
-- Create bilingual categories independently
-- Update the category of a selected question
+Category and subcategory creation is administrator-only. Every protected endpoint also verifies the active session and role on the server; hiding a dashboard button is not treated as authorization.
 
-Users cannot access dashboards or operations that do not belong to their roles.
+## Database Tables
 
-## Main Pages
+Schema version 2 contains:
 
-- `GET /login` - Open the login page
-- `GET /student-dashboard` - Open the student dashboard
-- `GET /dashboard` - Open the expert dashboard
-- `GET /admin-dashboard` - Open the administrator dashboard
-- `GET /docs` - Open the Swagger API documentation
+- `roles`, `users`
+- `languages`, `categories`, `subcategories`
+- `knowledge_entries`
+- `questions`, `question_assignments`, `answers`, `attachments`
+- `ai_suggestions`, `audit_logs`
 
-## Main API Endpoints
+See [docs/database_schema.md](docs/database_schema.md) for fields, relationships, indexes, triggers, and validation results.
 
-### Authentication
+## Main Endpoints
 
-- `POST /login` - Authenticate a user
-- `POST /logout` - End the current session
-- `GET /me` - View the authenticated user
-
-### Knowledge Base and Categories
-
-- `GET /health` - Check the API and database connection
-- `GET /stats` - View database statistics
-- `GET /categories` - List categories
-- `POST /categories` - Create a bilingual category as staff or admin
-- `GET /knowledge` - Search and filter institutional Q&A records
-- `GET /knowledge/{entry_id}` - View one institutional Q&A record
-
-### Question Management
-
-- `POST /questions` - Submit a student question
-- `GET /questions` - List student questions for staff and administrators
-- `GET /questions/{question_id}` - View question details
-- `PATCH /questions/{question_id}/assign` - Assign a question
-- `PATCH /questions/{question_id}/category` - Update a question category
-- `POST /questions/{question_id}/answers` - Answer a question
-- `GET /students/{student_id}/questions` - List one student's questions
-
-### Attachments
-
-- `POST /questions/{question_id}/attachments` - Upload a question attachment
-- `GET /questions/{question_id}/attachments` - List question attachments
-- `GET /attachments/{attachment_id}/download` - Download an authorized attachment
-
-### Administration
-
-- `GET /admin/overview` - View administrator statistics
-- `GET /admin/users` - List system users
-- `POST /admin/users` - Create a new user
-- `PATCH /admin/users/{user_id}/role` - Change a user's role
-
-Protected endpoints require a valid session and the correct user role.
-
-## Attachment Security
-
-- Only the owner student can upload an attachment to their question.
-- Students can only access attachments belonging to their own questions.
-- Staff and administrators can access attachments for support operations.
-- File extensions and MIME types are validated.
-- The maximum file size is 5 MB.
-- Stored filenames are generated securely instead of trusting the original filename.
-- Uploaded files are excluded from Git.
+| Area | Endpoint | Permission |
+|---|---|---|
+| Authentication | `POST /login`, `POST /logout`, `GET /me` | Session based |
+| Knowledge | `GET /knowledge`, `GET /knowledge/{id}` | Staff, admin |
+| Categories | `GET /categories`, `GET /subcategories` | Authenticated users |
+| Category admin | `POST /categories`, `POST /subcategories` | Admin |
+| Questions | `POST /questions` | Student |
+| Questions | `GET /questions`, `PATCH /questions/{id}/assign` | Staff, admin |
+| Questions | `PATCH /questions/{id}/category` | Staff, admin |
+| Answers | `POST /questions/{id}/answers` | Staff, admin |
+| Attachments | Upload/list/download routes | Ownership and role checks |
+| Administration | `/admin/overview`, `/admin/users`, `/admin/audit-logs` | Admin |
 
 ## Demo Accounts
 
-The project contains the following development-only accounts:
+These accounts are for local development only:
 
 | Role | Email | Password |
 |---|---|---|
@@ -400,11 +185,11 @@ The project contains the following development-only accounts:
 | Staff | `staff@demo.local` | `Staff123!` |
 | Admin | `admin@demo.local` | `Admin123!` |
 
-These accounts are provided only for local development and demonstration. They must not be used in a production environment.
+Never reuse these credentials in production.
 
-## Automated Tests
+## Tests
 
-Run the complete test suite:
+Run:
 
 ```bat
 python -m pytest -v
@@ -413,57 +198,28 @@ python -m pytest -v
 Current result:
 
 ```text
-24 passed
+30 passed, 1 third-party deprecation warning
 ```
 
-The tests cover:
-
-- API health and database connection
-- Database statistics
-- Categories
-- Knowledge-base searching
-- Existing and missing knowledge records
-- Authentication
-- Role-based authorization
-- Student dashboard
-- Expert dashboard
-- Administrator dashboard
-- Administrator API endpoints
-- Administrator user creation
-- User role updates
-- Unauthorized user management restrictions
-- Secure attachment upload and access restrictions
-- Category creation by staff and administrators
-- Question category assignment
-- Unauthorized category operations
-- Static file delivery
+Coverage includes authentication, role restrictions, the 744-record knowledge base, schema-v2 installation, category and subcategory workflows, assignment history, answered timestamps, attachments, audit-log access, administrator user management, pages, and static files.
 
 ## Security Notes
 
-- Passwords are stored as hashes, not plain text.
-- Session data is protected with `SESSION_SECRET`.
-- Role checks protect student, staff, and administrator operations.
-- The real `.env` file is excluded from Git.
-- Uploaded files are excluded from Git.
-- Demo accounts are for local development only.
-- HTTPS and secure cookies must be enabled before production deployment.
+- Passwords are stored as bcrypt hashes.
+- The session secret is read from `.env`; the real file must not be committed or shared.
+- Students can only create and view resources belonging to their own account.
+- Upload extensions, MIME types, size, storage names, and download paths are checked.
+- SQLite foreign keys, integrity validation, and cross-category subcategory triggers are enabled.
+- Production deployment should enable HTTPS, secure cookies, secret rotation, backups, and a production database service.
 
 ## Future Work
 
-- Receive the official train/test split
-- Integrate the selected AI model
-- Generate AI-supported answer suggestions
-- Compare model performance
-- Complete Turkish and English interface switching
-- Add automatic question category classification
-- Add password reset and active/inactive account controls
-- Add audit logs
-- Improve production security settings
-- Move from SQLite to PostgreSQL if required
-- Deploy the system to a production server
+- Integrate the official train/test split and selected AI model
+- Add automated category classification and evaluated answer suggestions
+- Complete Turkish/English interface switching
+- Add password reset and account activation controls
+- Move to PostgreSQL and production hosting if required
 
 ## Repository
 
-GitHub repository:
-
-https://github.com/aliefeekmen/dau-student-support-system
+[GitHub repository](https://github.com/aliefeekmen/dau-student-support-system)

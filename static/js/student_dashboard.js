@@ -85,6 +85,10 @@ const elements = {
         "#new-question-category"
     ),
 
+    subcategorySelect: document.querySelector(
+        "#new-question-subcategory"
+    ),
+
     languageSelect: document.querySelector(
         "#new-question-language"
     ),
@@ -222,6 +226,47 @@ async function loadCategories() {
     }
 }
 
+async function loadSubcategories(categoryId) {
+    elements.subcategorySelect.innerHTML = `
+        <option value="">
+            No subcategory
+        </option>
+    `;
+    elements.subcategorySelect.disabled = true;
+
+    if (!categoryId) {
+        elements.subcategorySelect.innerHTML = `
+            <option value="">
+                Select a category first
+            </option>
+        `;
+        return;
+    }
+
+    try {
+        const subcategories = await apiRequest(
+            `/subcategories?category_id=${categoryId}`
+        );
+
+        subcategories.forEach((subcategory) => {
+            const option =
+                document.createElement("option");
+
+            option.value = subcategory.id;
+            option.textContent = subcategory.name_en;
+
+            elements.subcategorySelect.appendChild(
+                option
+            );
+        });
+
+        elements.subcategorySelect.disabled =
+            subcategories.length === 0;
+    } catch (error) {
+        showFormMessage(error.message, true);
+    }
+}
+
 async function loadStudentQuestions(
     selectNewest = false
 ) {
@@ -305,6 +350,8 @@ function filteredQuestions() {
                 question.question_text,
                 question.category.name_en,
                 question.category.name_tr,
+                question.subcategory?.name_en,
+                question.subcategory?.name_tr,
             ]
                 .join(" ")
                 .toLowerCase();
@@ -482,7 +529,9 @@ function selectQuestion(questionId) {
         `tag ${statusClass(question.status)}`;
 
     elements.detailCategory.textContent =
-        question.category.name_en;
+        question.subcategory
+            ? `${question.category.name_en} / ${question.subcategory.name_en}`
+            : question.category.name_en;
 
     elements.detailDate.textContent =
         formatDate(question.created_at);
@@ -561,6 +610,10 @@ async function submitQuestion(event) {
         elements.categorySelect.value
     );
 
+    const subcategoryId = Number(
+        elements.subcategorySelect.value
+    ) || null;
+
     const language =
         elements.languageSelect.value;
 
@@ -608,6 +661,7 @@ async function submitQuestion(event) {
                 body: JSON.stringify({
                     student_id: STUDENT_ID,
                     category_id: categoryId,
+                    subcategory_id: subcategoryId,
                     language,
                     subject,
                     question_text: questionText,
@@ -641,6 +695,7 @@ async function submitQuestion(event) {
 
         elements.questionForm.reset();
         elements.languageSelect.value = "tr";
+        await loadSubcategories(null);
 
         showFormMessage(
             attachment
@@ -710,6 +765,15 @@ document
 elements.questionForm.addEventListener(
     "submit",
     submitQuestion
+);
+
+elements.categorySelect.addEventListener(
+    "change",
+    () => {
+        loadSubcategories(
+            Number(elements.categorySelect.value)
+        );
+    }
 );
 
 Promise.all([

@@ -60,6 +60,40 @@ def test_health_endpoint():
     }
 
 
+def test_schema_v2_is_installed():
+    with sqlite3.connect(database_path) as connection:
+        schema_version = connection.execute(
+            "PRAGMA user_version"
+        ).fetchone()[0]
+        tables = {
+            row[0]
+            for row in connection.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table'
+                """
+            )
+        }
+        question_columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info(questions)"
+            )
+        }
+
+    assert schema_version == 2
+    assert {
+        "subcategories",
+        "question_assignments",
+        "audit_logs",
+    }.issubset(tables)
+    assert {
+        "subcategory_id",
+        "answered_at",
+    }.issubset(question_columns)
+
+
 def test_login_page():
     response = client.get("/login")
 
@@ -83,7 +117,7 @@ def test_statistics_endpoint():
     data = response.json()
 
     assert response.status_code == 200
-    assert data["knowledge_entries"] == 769
+    assert data["knowledge_entries"] == 744
     assert data["categories"] >= 31
     assert data["languages"] == 2
 
@@ -124,11 +158,11 @@ def test_knowledge_search():
 def test_get_existing_knowledge_entry():
     login_as_staff()
 
-    response = client.get("/knowledge/7136")
+    response = client.get("/knowledge/1")
     data = response.json()
 
     assert response.status_code == 200
-    assert data["id"] == 7136
+    assert data["id"] == 1
     assert data["language"] == "tr"
 
 
@@ -213,7 +247,7 @@ def test_admin_overview_endpoint():
     assert response.status_code == 200
     assert data["users"] >= 3
     assert data["categories"] >= 31
-    assert data["knowledge_entries"] == 769
+    assert data["knowledge_entries"] == 744
 
 
 def test_staff_cannot_access_admin_endpoint():
@@ -304,6 +338,7 @@ def test_student_can_upload_question_attachment():
             attachment_list[0]["file_name"]
             == "test_document.pdf"
         )
+        assert attachment_list[0]["size"] > 0
 
         download_response = client.get(
             f"/attachments/{attachment_id}/download"
@@ -374,16 +409,47 @@ def test_staff_cannot_upload_question_attachment():
     assert response.status_code == 403
 def cleanup_category_test(
     question_id=None,
+    subcategory_id=None,
     category_id=None,
 ):
     with sqlite3.connect(database_path) as connection:
         if question_id is not None:
             connection.execute(
                 """
+                DELETE FROM question_assignments
+                WHERE question_id = ?
+                """,
+                (question_id,),
+            )
+            connection.execute(
+                """
+                DELETE FROM answers
+                WHERE question_id = ?
+                """,
+                (question_id,),
+            )
+            connection.execute(
+                """
+                DELETE FROM attachments
+                WHERE question_id = ?
+                """,
+                (question_id,),
+            )
+            connection.execute(
+                """
                 DELETE FROM questions
                 WHERE id = ?
                 """,
                 (question_id,),
+            )
+
+        if subcategory_id is not None:
+            connection.execute(
+                """
+                DELETE FROM subcategories
+                WHERE id = ?
+                """,
+                (subcategory_id,),
             )
 
         if category_id is not None:
@@ -398,7 +464,7 @@ def cleanup_category_test(
         connection.commit()
 
 
-def test_staff_can_create_and_assign_category():
+def test_staff_can_assign_admin_created_category():
     unique_value = uuid4().hex[:8]
     question_id = None
     category_id = None
@@ -424,7 +490,7 @@ def test_staff_can_create_and_assign_category():
         question_id = question_response.json()["id"]
 
         client.post("/logout")
-        login_as_staff()
+        login_as_admin()
 
         category_data = {
             "name_tr": (
@@ -450,6 +516,9 @@ def test_staff_can_create_and_assign_category():
         )
 
         assert duplicate_response.status_code == 409
+
+        client.post("/logout")
+        login_as_staff()
 
         update_response = client.patch(
             f"/questions/{question_id}/category",
@@ -482,6 +551,20 @@ def test_staff_can_create_and_assign_category():
         )
 
 
+def test_staff_cannot_create_category():
+    login_as_staff()
+
+    response = client.post(
+        "/categories",
+        json={
+            "name_tr": "Yetkisiz Personel Kategorisi",
+            "name_en": "Unauthorized Staff Category",
+        },
+    )
+
+    assert response.status_code == 403
+
+
 def test_admin_can_create_category():
     unique_value = uuid4().hex[:8]
     category_id = None
@@ -498,16 +581,180 @@ def test_admin_can_create_category():
                 "name_en": (
                     f"Admin Test Category {unique_value}"
                 ),
+                "description": "Schema v2 category test",
+                "responsible_unit": "IT Directorate",
             },
         )
 
         assert response.status_code == 201
 
-        category_id = response.json()["id"]
+        response_data = response.json()
+        category_id = response_data["id"]
+        assert response_data["description"] == (
+            "Schema v2 category test"
+        )
+        assert response_data["responsible_unit"] == (
+            "IT Directorate"
+        )
     finally:
         cleanup_category_test(
             category_id=category_id,
         )
+
+
+def test_admin_can_create_subcategory_and_student_can_use_it():
+    unique_value = uuid4().hex[:8]
+    category_id = None
+    subcategory_id = None
+    question_id = None
+
+    try:
+        login_as_admin()
+
+        category_response = client.post(
+            "/categories",
+            json={
+                "name_tr": f"Alt Kategori Testi {unique_value}",
+                "name_en": f"Subcategory Test {unique_value}",
+            },
+        )
+        assert category_response.status_code == 201
+        category_id = category_response.json()["id"]
+
+        subcategory_response = client.post(
+            "/subcategories",
+            json={
+                "category_id": category_id,
+                "name_tr": f"Alt Başlık {unique_value}",
+                "name_en": f"Subtopic {unique_value}",
+            },
+        )
+        assert subcategory_response.status_code == 201
+        subcategory_id = subcategory_response.json()["id"]
+
+        client.post("/logout")
+        login_as_student()
+
+        list_response = client.get(
+            "/subcategories",
+            params={"category_id": category_id},
+        )
+        assert list_response.status_code == 200
+        assert any(
+            item["id"] == subcategory_id
+            for item in list_response.json()
+        )
+
+        question_response = client.post(
+            "/questions",
+            json={
+                "student_id": 1,
+                "category_id": category_id,
+                "subcategory_id": subcategory_id,
+                "language": "en",
+                "subject": "Subcategory workflow test",
+                "question_text": (
+                    "This question verifies the subcategory workflow."
+                ),
+            },
+        )
+        assert question_response.status_code == 201
+        question_id = question_response.json()["id"]
+
+        detail_response = client.get(
+            f"/questions/{question_id}"
+        )
+        assert detail_response.status_code == 200
+        assert (
+            detail_response.json()["subcategory"]["id"]
+            == subcategory_id
+        )
+    finally:
+        cleanup_category_test(
+            question_id=question_id,
+            subcategory_id=subcategory_id,
+            category_id=category_id,
+        )
+
+
+def test_assignment_history_and_answered_timestamp():
+    question_id = None
+
+    try:
+        login_as_student()
+        question_response = client.post(
+            "/questions",
+            json={
+                "student_id": 1,
+                "category_id": 15,
+                "language": "en",
+                "subject": "Assignment history test",
+                "question_text": (
+                    "This question verifies assignment history."
+                ),
+            },
+        )
+        assert question_response.status_code == 201
+        question_id = question_response.json()["id"]
+
+        client.post("/logout")
+        login_as_staff()
+
+        assign_response = client.patch(
+            f"/questions/{question_id}/assign",
+            json={"staff_id": 2},
+        )
+        assert assign_response.status_code == 200
+
+        answer_response = client.post(
+            f"/questions/{question_id}/answers",
+            json={
+                "staff_id": 2,
+                "answer_text": "Assignment history verified.",
+                "used_ai_suggestion": False,
+            },
+        )
+        assert answer_response.status_code == 201
+
+        detail_response = client.get(
+            f"/questions/{question_id}"
+        )
+        detail = detail_response.json()
+
+        assert detail_response.status_code == 200
+        assert detail["status"] == "answered"
+        assert detail["answered_at"] is not None
+        assert len(detail["assignment_history"]) == 1
+        assert detail["assignment_history"][0][
+            "assigned_to_user_id"
+        ] == 2
+        assert detail["assignment_history"][0][
+            "is_active"
+        ] is False
+    finally:
+        cleanup_category_test(question_id=question_id)
+
+
+def test_admin_can_view_audit_logs():
+    login_as_admin()
+
+    response = client.get("/admin/audit-logs")
+
+    assert response.status_code == 200
+    assert len(response.json()) > 0
+    assert {
+        "action",
+        "entity_type",
+        "timestamp",
+    }.issubset(response.json()[0])
+
+
+def test_staff_cannot_view_audit_logs():
+    login_as_staff()
+
+    response = client.get("/admin/audit-logs")
+
+    assert response.status_code == 403
 
 
 def test_student_cannot_create_category():

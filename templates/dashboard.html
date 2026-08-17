@@ -92,14 +92,6 @@
                     Answered by Me
                 </button>
 
-                <button class="nav-item"
-                        id="open-category-dialog">
-                    <span class="icon">
-                        <i class="ph ph-tag"></i>
-                    </span>
-                    Category Management
-                </button>
-
                 <button class="nav-item">
                     <span class="icon">
                         <i class="ph ph-brain"></i>
@@ -451,54 +443,6 @@
         </div>
     </div>
 
-    <dialog class="panel category-dialog"
-            id="category-dialog">
-        <header class="panel-header">
-            <h2>Category Management</h2>
-
-            <button class="icon-button"
-                    id="close-category-dialog"
-                    type="button"
-                    aria-label="Close category management">
-                <i class="ph ph-x"></i>
-            </button>
-        </header>
-
-        <div class="panel-body">
-            <p>
-                Add a new category independently from student
-                questions.
-            </p>
-
-            <div class="form-grid">
-                <input class="input"
-                       id="new-category-tr"
-                       type="text"
-                       maxlength="150"
-                       placeholder="Turkish category name">
-
-                <input class="input"
-                       id="new-category-en"
-                       type="text"
-                       maxlength="150"
-                       placeholder="English category name">
-            </div>
-
-            <div class="editor-actions">
-                <button class="answer-button"
-                        id="create-category-button"
-                        type="button">
-                    <i class="ph ph-plus"></i>
-                    Add Category
-                </button>
-            </div>
-
-            <div class="empty-state"
-                 id="category-create-message"
-                 hidden></div>
-        </div>
-    </dialog>
-
-    <script src="{{ url_for('static', path='/js/dashboard.js') }}?v=6"></script>
+    <script src="{{ url_for('static', path='/js/dashboard.js') }}?v=7"></script>
 </body>
 </html>

@@ -1,231 +1,218 @@
-# Database Schema
+# Database Schema — Version 2
 
-This document explains the relational database structure of the DAU Student Support and Institutional Q&A System.
+This document describes the SQLite schema used by the EMU Student Support and Institutional Q&A System. The active database reports `PRAGMA user_version = 2`.
 
-## Normalization Approach
+## Design Summary
 
-The original CSV file repeats language and category information in every question-answer record.
+The schema separates authentication, classification, institutional knowledge, live student support, files, AI metadata, and audit history. Repeated languages and categories are normalized into referenced tables. Foreign keys protect relationships, indexes support common queries, and triggers prevent a question from using a subcategory from another category.
 
-To reduce repeated data:
+Existing application-friendly column names map directly to the technical specification. For example, `users.full_name` represents Name, `users.university_id` represents StudentNumber, `answers.staff_id` represents AnsweredByUserId, and `attachments.file_path` represents StoredName/Path.
 
-- Languages are stored in the `languages` table.
-- Categories are stored in the `categories` table.
-- Cleaned question-answer records are stored in the `knowledge_entries` table.
-- Primary keys and foreign keys connect the tables.
-
-This structure reduces data repetition and improves data consistency.
-
-## Entity Relationship Diagram
+## Relationship Overview
 
 ```mermaid
 erDiagram
-    ROLES ||--o{ USERS : has
+    ROLES ||--o{ USERS : authorizes
     USERS ||--o{ QUESTIONS : submits
-    USERS ||--o{ QUESTIONS : assigned
-    USERS ||--o{ ANSWERS : writes
-
+    CATEGORIES ||--o{ SUBCATEGORIES : contains
+    CATEGORIES ||--o{ QUESTIONS : classifies
+    SUBCATEGORIES ||--o{ QUESTIONS : refines
+    LANGUAGES ||--o{ QUESTIONS : defines
     CATEGORIES ||--o{ KNOWLEDGE_ENTRIES : classifies
     LANGUAGES ||--o{ KNOWLEDGE_ENTRIES : defines
-
-    CATEGORIES ||--o{ QUESTIONS : classifies
-    LANGUAGES ||--o{ QUESTIONS : defines
-
+    QUESTIONS ||--o{ QUESTION_ASSIGNMENTS : records
+    USERS ||--o{ QUESTION_ASSIGNMENTS : receives
     QUESTIONS ||--o{ ANSWERS : receives
+    USERS ||--o{ ANSWERS : writes
     QUESTIONS ||--o{ ATTACHMENTS : contains
     QUESTIONS ||--o{ AI_SUGGESTIONS : generates
-
-    ROLES {
-        int id PK
-        string name
-    }
-
-    USERS {
-        int id PK
-        string university_id
-        string full_name
-        string email
-        string password_hash
-        int role_id FK
-        boolean is_active
-        datetime created_at
-    }
-
-    LANGUAGES {
-        int id PK
-        string code
-        string name
-    }
-
-    CATEGORIES {
-        int id PK
-        string name_tr
-        string name_en
-    }
-
-    KNOWLEDGE_ENTRIES {
-        int id PK
-        text question
-        text answer
-        int category_id FK
-        int language_id FK
-        datetime created_at
-    }
-
-    QUESTIONS {
-        int id PK
-        int student_id FK
-        int category_id FK
-        int language_id FK
-        string subject
-        text question_text
-        string status
-        int assigned_staff_id FK
-        datetime created_at
-        datetime updated_at
-    }
-
-    ANSWERS {
-        int id PK
-        int question_id FK
-        int staff_id FK
-        text answer_text
-        boolean used_ai_suggestion
-        datetime created_at
-    }
-
-    ATTACHMENTS {
-        int id PK
-        int question_id FK
-        string file_name
-        string file_path
-        string mime_type
-        datetime uploaded_at
-    }
-
-    AI_SUGGESTIONS {
-        int id PK
-        int question_id FK
-        string model_name
-        text suggestion_text
-        boolean accepted
-        datetime created_at
-    }
+    USERS ||--o{ AUDIT_LOGS : performs
 ```
 
-## Table Descriptions
+## Tables and Fields
 
-### languages
+### `roles`
 
-This table stores the languages supported by the system.
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `name` | Unique role: `student`, `staff`, or `admin` |
 
-Initial values:
+### `users`
 
-- `tr`: Turkish
-- `en`: English
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `university_id` | Unique student/person number; optional for non-students |
+| `full_name` | Display name |
+| `email` | Unique login address |
+| `password_hash` | bcrypt password hash |
+| `role_id` | Foreign key to `roles.id` |
+| `is_active` | Active-account flag |
+| `created_at` | Creation timestamp |
 
-### categories
+### `languages`
 
-This table stores the Turkish and English names of each question category.
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `code` | Unique code (`tr`, `en`) |
+| `name` | Display name |
 
-Category information is stored separately to prevent the same category names from being repeated in hundreds of records.
+### `categories`
 
-### knowledge_entries
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `name_tr`, `name_en` | Unique bilingual names |
+| `description` | Optional explanation |
+| `responsible_unit` | Optional responsible department/unit |
+| `is_active` | Availability flag |
 
-This table stores the 769 cleaned institutional question-answer records.
+### `subcategories`
 
-It is connected to the `categories` and `languages` tables through foreign keys.
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `category_id` | Foreign key to parent category |
+| `name_tr`, `name_en` | Bilingual names, unique within the parent |
+| `is_active` | Availability flag |
+| `created_at` | Creation timestamp |
 
-This table will be used for knowledge-base searching and future AI-supported answer suggestions.
+### `knowledge_entries`
 
-### roles
+| Field | Purpose |
+|---|---|
+| `id` | Stable primary key from 1 to 744 |
+| `question`, `answer` | Privacy-clean institutional Q&A text |
+| `category_id` | Foreign key to `categories.id` |
+| `language_id` | Foreign key to `languages.id` |
+| `created_at` | Import timestamp |
 
-This table stores the system roles:
+### `questions`
 
-- `student`
-- `staff`
-- `admin`
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `student_id` | Foreign key to submitting user |
+| `category_id` | Required category foreign key |
+| `subcategory_id` | Optional subcategory foreign key |
+| `language_id` | Required language foreign key |
+| `subject`, `question_text` | Student question content |
+| `status` | `open`, `assigned`, `answered`, or `closed` |
+| `assigned_staff_id` | Current staff assignee for fast access |
+| `created_at`, `updated_at` | Lifecycle timestamps |
+| `answered_at` | Time the question was answered |
 
-### users
+`assigned_staff_id` stores the current assignment, while `question_assignments` preserves the history.
 
-This table stores student, staff, and administrator accounts.
+### `question_assignments`
 
-Passwords are not stored as plain text. Only password hashes are stored.
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `question_id` | Foreign key to the question |
+| `assigned_to_user_id` | Foreign key to the assigned user |
+| `assigned_at` | Assignment timestamp |
+| `is_active` | Current/historical flag |
 
-### questions
+A partial unique index permits at most one active assignment for each question.
 
-This table stores new questions submitted by students.
+### `answers`
 
-Supported question statuses:
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `question_id` | Foreign key to the question |
+| `staff_id` | Foreign key to the answering user |
+| `answer_text` | Official answer |
+| `used_ai_suggestion` | Whether AI assistance was used |
+| `created_at` | Answer timestamp |
 
-- `open`
-- `assigned`
-- `answered`
-- `closed`
+### `attachments`
 
-A question is connected to a student, category, language, and optionally an assigned staff member.
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `question_id` | Foreign key to the question |
+| `file_name` | Original safe display name |
+| `file_path` | Generated relative storage path |
+| `mime_type` | Validated content type |
+| `file_size` | File size in bytes |
+| `uploaded_at` | Upload timestamp |
 
-### answers
+Files remain outside SQLite; only validated metadata and the storage path are recorded.
 
-This table stores the answers written by staff members.
+### `ai_suggestions`
 
-It also records whether an AI-generated suggestion was used while preparing the answer.
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `question_id` | Foreign key to the question |
+| `provider`, `model_name` | AI provider/model metadata |
+| `prompt_context` | Prompt or retrieval context |
+| `suggestion_text` | Generated response |
+| `accepted`, `was_used` | Review/use flags |
+| `created_at`, `generated_at` | Lifecycle timestamps |
 
-### attachments
+This table is prepared for later AI integration; the current application does not train or call a model.
 
-This table stores information about files attached to student questions.
+### `audit_logs`
 
-The database stores file information and location instead of storing the full file directly.
+| Field | Purpose |
+|---|---|
+| `id` | Primary key |
+| `user_id` | Optional foreign key to the acting user |
+| `action` | Machine-readable action name |
+| `entity_type`, `entity_id` | Affected entity reference |
+| `timestamp` | Event timestamp |
 
-### ai_suggestions
+Login success/failure, logout, question creation and assignment, answers, attachments, category/subcategory creation, user creation, role updates, and question-category changes are logged.
 
-This table is prepared for future AI-generated answer suggestions.
+## Integrity Rules
 
-It stores:
+- Required relationships use foreign keys.
+- `is_active`, `accepted`, and `was_used` values are constrained to Boolean integers.
+- Question status is constrained to the four supported values.
+- Attachment sizes cannot be negative.
+- Category names are globally unique; subcategory names are unique within a category.
+- Insert/update triggers reject a subcategory whose `category_id` does not match the question category.
+- A unique partial index rejects multiple active assignments for one question.
 
-- Related question
-- AI model name
-- Suggested answer
-- Whether the suggestion was accepted
-- Creation date
+## Main Indexes
 
-The train/test split and AI model integration will be completed in a later project phase.
+Indexes cover knowledge category/language, active subcategories, question student/status/category/subcategory/assignee, answers, attachments, AI suggestions, assignment history, and audit lookups. They are declared with `IF NOT EXISTS`, so migration is idempotent.
 
-## Main Relationships
+## Version-2 Migration
 
-| Parent Table | Child Table | Relationship |
-|---|---|---|
-| roles | users | One role can have many users |
-| users | questions | One student can submit many questions |
-| users | questions | One staff member can receive many questions |
-| users | answers | One staff member can write many answers |
-| categories | knowledge_entries | One category can classify many knowledge entries |
-| languages | knowledge_entries | One language can be used by many knowledge entries |
-| categories | questions | One category can classify many student questions |
-| languages | questions | One language can be used by many student questions |
-| questions | answers | One question can have answers |
-| questions | attachments | One question can have attachments |
-| questions | ai_suggestions | One question can have AI suggestions |
+Run on an existing database:
 
-## Database Validation
+```bat
+python scripts\migrate_database.py
+python scripts\validate_database.py
+```
 
-The database was validated after the data import.
+The migration:
 
-Validation results:
+1. Creates a timestamped SQLite backup unless disabled explicitly.
+2. Adds missing tables, columns, indexes, and triggers.
+3. Backfills `answered_at`, assignment history, AI timestamps/use state, and attachment sizes.
+4. Sets schema version 2.
+5. Runs integrity and foreign-key checks.
 
-- No foreign key errors
-- 2 language records
-- 31 category records
-- 769 knowledge-base records
-- 654 Turkish records
-- 115 English records
+It can be rerun without duplicating assignments or schema objects.
 
-## Database Choice
+## Validated Database State
 
-SQLite was selected for the first phase because:
+| Check | Result |
+|---|---:|
+| Schema version | 2 |
+| Integrity check | `ok` |
+| Foreign-key violations | 0 |
+| Knowledge entries | 744 |
+| Turkish entries | 603 |
+| English entries | 141 |
+| Dataset categories | 31 |
+| Automated tests | 30 passed |
 
-- The dataset size is manageable.
-- It does not require a separate database server.
-- It supports relational tables and foreign keys.
-- It is suitable for initial development and testing.
-
-The system can be moved to PostgreSQL in a later phase if required.
+SQLite is appropriate for this project phase. A later production deployment can preserve the same relational design while moving to PostgreSQL.

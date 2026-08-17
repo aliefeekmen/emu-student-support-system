@@ -409,6 +409,18 @@
                                        type="text"
                                        maxlength="150"
                                        placeholder="English category name">
+
+                                <input class="input"
+                                       id="admin-new-category-description"
+                                       type="text"
+                                       maxlength="500"
+                                       placeholder="Description (optional)">
+
+                                <input class="input"
+                                       id="admin-new-category-unit"
+                                       type="text"
+                                       maxlength="200"
+                                       placeholder="Responsible unit (optional)">
                             </div>
 
                             <div class="editor-actions">
@@ -441,6 +453,44 @@
                                 Categories created here become available
                                 in student forms and staff assignment lists.
                             </p>
+
+                            <h3 class="section-title">
+                                Add New Subcategory
+                            </h3>
+
+                            <div class="form-grid">
+                                <select class="select"
+                                        id="admin-subcategory-category">
+                                    <option value="">
+                                        Select parent category
+                                    </option>
+                                </select>
+
+                                <input class="input"
+                                       id="admin-new-subcategory-tr"
+                                       type="text"
+                                       maxlength="150"
+                                       placeholder="Turkish subcategory name">
+
+                                <input class="input"
+                                       id="admin-new-subcategory-en"
+                                       type="text"
+                                       maxlength="150"
+                                       placeholder="English subcategory name">
+                            </div>
+
+                            <div class="editor-actions">
+                                <button class="answer-button"
+                                        id="admin-create-subcategory"
+                                        type="button">
+                                    <i class="ph ph-plus"></i>
+                                    Add Subcategory
+                                </button>
+                            </div>
+
+                            <div class="empty-state"
+                                 id="admin-subcategory-message"
+                                 hidden></div>
                         </div>
                     </article>
                 </section>
@@ -485,6 +535,6 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', path='/js/admin_dashboard.js') }}?v=5"></script>
+    <script src="{{ url_for('static', path='/js/admin_dashboard.js') }}?v=6"></script>
 </body>
 </html>

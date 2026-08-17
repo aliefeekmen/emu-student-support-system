@@ -1,5 +1,6 @@
 const state = {
     categories: [],
+    subcategories: [],
     questions: [],
 };
 
@@ -68,6 +69,14 @@ const elements = {
         "#admin-new-category-en"
     ),
 
+    newCategoryDescription: document.querySelector(
+        "#admin-new-category-description"
+    ),
+
+    newCategoryUnit: document.querySelector(
+        "#admin-new-category-unit"
+    ),
+
     createCategoryButton: document.querySelector(
         "#admin-create-category"
     ),
@@ -78,6 +87,26 @@ const elements = {
 
     categoryListCount: document.querySelector(
         "#admin-category-list-count"
+    ),
+
+    subcategoryCategorySelect: document.querySelector(
+        "#admin-subcategory-category"
+    ),
+
+    newSubcategoryTr: document.querySelector(
+        "#admin-new-subcategory-tr"
+    ),
+
+    newSubcategoryEn: document.querySelector(
+        "#admin-new-subcategory-en"
+    ),
+
+    createSubcategoryButton: document.querySelector(
+        "#admin-create-subcategory"
+    ),
+
+    subcategoryMessage: document.querySelector(
+        "#admin-subcategory-message"
     ),
 
     questionCategoryTable: document.querySelector(
@@ -474,12 +503,34 @@ function showUserMessage(
 }
 
 async function loadCategories() {
-    state.categories = await apiRequest(
-        "/categories"
-    );
+    const [categories, subcategories] =
+        await Promise.all([
+            apiRequest("/categories"),
+            apiRequest("/subcategories"),
+        ]);
+
+    state.categories = categories;
+    state.subcategories = subcategories;
 
     elements.categoryListCount.textContent =
-        `${state.categories.length} categories`;
+        `${state.categories.length} categories / `
+        + `${state.subcategories.length} subcategories`;
+
+    elements.subcategoryCategorySelect.innerHTML = `
+        <option value="">
+            Select parent category
+        </option>
+    `;
+
+    state.categories.forEach((category) => {
+        const option = document.createElement("option");
+        option.value = category.id;
+        option.textContent =
+            `${category.name_en} / ${category.name_tr}`;
+        elements.subcategoryCategorySelect.appendChild(
+            option
+        );
+    });
 }
 
 function categoryOptions(
@@ -608,6 +659,12 @@ async function createCategory() {
     const nameEn =
         elements.newCategoryEn.value.trim();
 
+    const description =
+        elements.newCategoryDescription.value.trim();
+
+    const responsibleUnit =
+        elements.newCategoryUnit.value.trim();
+
     if (!nameTr || !nameEn) {
         showCategoryMessage(
             "Both Turkish and English category names are required.",
@@ -627,12 +684,16 @@ async function createCategory() {
                 body: JSON.stringify({
                     name_tr: nameTr,
                     name_en: nameEn,
+                    description: description || null,
+                    responsible_unit: responsibleUnit || null,
                 }),
             }
         );
 
         elements.newCategoryTr.value = "";
         elements.newCategoryEn.value = "";
+        elements.newCategoryDescription.value = "";
+        elements.newCategoryUnit.value = "";
 
         await Promise.all([
             loadCategories(),
@@ -652,6 +713,54 @@ async function createCategory() {
     } finally {
         elements.createCategoryButton.disabled =
             false;
+    }
+}
+
+async function createSubcategory() {
+    const categoryId = Number(
+        elements.subcategoryCategorySelect.value
+    );
+    const nameTr =
+        elements.newSubcategoryTr.value.trim();
+    const nameEn =
+        elements.newSubcategoryEn.value.trim();
+
+    if (!categoryId || !nameTr || !nameEn) {
+        showSubcategoryMessage(
+            "Parent category and both names are required.",
+            true
+        );
+        return;
+    }
+
+    elements.createSubcategoryButton.disabled = true;
+
+    try {
+        await apiRequest(
+            "/subcategories",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    category_id: categoryId,
+                    name_tr: nameTr,
+                    name_en: nameEn,
+                }),
+            }
+        );
+
+        elements.newSubcategoryTr.value = "";
+        elements.newSubcategoryEn.value = "";
+        await loadCategories();
+        elements.subcategoryCategorySelect.value =
+            String(categoryId);
+
+        showSubcategoryMessage(
+            "Subcategory created successfully."
+        );
+    } catch (error) {
+        showSubcategoryMessage(error.message, true);
+    } finally {
+        elements.createSubcategoryButton.disabled = false;
     }
 }
 
@@ -755,6 +864,16 @@ function showCategoryMessage(
         isError ? "#d83b4f" : "#158657";
 }
 
+function showSubcategoryMessage(
+    message,
+    isError = false
+) {
+    elements.subcategoryMessage.hidden = false;
+    elements.subcategoryMessage.textContent = message;
+    elements.subcategoryMessage.style.color =
+        isError ? "#d83b4f" : "#158657";
+}
+
 elements.refreshButton.addEventListener(
     "click",
     loadAdminDashboard
@@ -763,6 +882,11 @@ elements.refreshButton.addEventListener(
 elements.createCategoryButton.addEventListener(
     "click",
     createCategory
+);
+
+elements.createSubcategoryButton.addEventListener(
+    "click",
+    createSubcategory
 );
 
 elements.createUserButton.addEventListener(

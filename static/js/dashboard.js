@@ -37,29 +37,8 @@ const elements = {
     updateCategoryButton: document.querySelector(
         "#update-category-button"
     ),
-    newCategoryTr: document.querySelector(
-        "#new-category-tr"
-    ),
-    newCategoryEn: document.querySelector(
-        "#new-category-en"
-    ),
-    createCategoryButton: document.querySelector(
-        "#create-category-button"
-    ),
     categoryUpdateMessage: document.querySelector(
         "#category-update-message"
-    ),
-    categoryCreateMessage: document.querySelector(
-        "#category-create-message"
-    ),
-    categoryDialog: document.querySelector(
-        "#category-dialog"
-    ),
-    openCategoryDialogButton: document.querySelector(
-        "#open-category-dialog"
-    ),
-    closeCategoryDialogButton: document.querySelector(
-        "#close-category-dialog"
     ),
 
     studentName: document.querySelector("#student-name"),
@@ -214,64 +193,6 @@ function showCategoryMessage(
     target.style.color =
         isError ? "#d83b4f" : "#158657";
 }
-
-async function createCategory() {
-    const nameTr =
-        elements.newCategoryTr.value.trim();
-
-    const nameEn =
-        elements.newCategoryEn.value.trim();
-
-    if (!nameTr || !nameEn) {
-        showCategoryMessage(
-            "Both Turkish and English category names are required.",
-            true,
-            elements.categoryCreateMessage
-        );
-
-        return;
-    }
-
-    elements.createCategoryButton.disabled = true;
-
-    try {
-        const category = await apiRequest(
-            "/categories",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    name_tr: nameTr,
-                    name_en: nameEn,
-                }),
-            }
-        );
-
-        elements.newCategoryTr.value = "";
-        elements.newCategoryEn.value = "";
-
-        await loadCategories(
-            state.selectedQuestion?.category.id
-            ?? null
-        );
-
-        showCategoryMessage(
-            "Category created successfully. "
-            + "It is now available for question assignment.",
-            false,
-            elements.categoryCreateMessage
-        );
-    } catch (error) {
-        showCategoryMessage(
-            error.message,
-            true,
-            elements.categoryCreateMessage
-        );
-    } finally {
-        elements.createCategoryButton.disabled =
-            false;
-    }
-}
-
 
 async function updateQuestionCategory() {
     if (!state.selectedQuestion) {
@@ -827,39 +748,9 @@ document
         });
     });
 
-elements.openCategoryDialogButton.addEventListener(
-    "click",
-    () => {
-        elements.categoryCreateMessage.hidden = true;
-        elements.categoryDialog.showModal();
-        elements.newCategoryTr.focus();
-    }
-);
-
-elements.closeCategoryDialogButton.addEventListener(
-    "click",
-    () => {
-        elements.categoryDialog.close();
-    }
-);
-
-elements.categoryDialog.addEventListener(
-    "click",
-    (event) => {
-        if (event.target === elements.categoryDialog) {
-            elements.categoryDialog.close();
-        }
-    }
-);
-
 elements.updateCategoryButton.addEventListener(
     "click",
     updateQuestionCategory
-);
-
-elements.createCategoryButton.addEventListener(
-    "click",
-    createCategory
 );
 
 elements.sendAnswerButton.addEventListener(

@@ -18,6 +18,13 @@ from fastapi import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.database import (
+    close_question_assignment,
+    connect_database,
+    record_question_assignment,
+    write_audit_log,
+)
+
 
 project_folder = Path(__file__).resolve().parent.parent
 load_dotenv(project_folder / ".env")
@@ -35,7 +42,7 @@ uploads_path.mkdir(parents=True, exist_ok=True)
 app = FastAPI(
     title="EMU Student Support API",
     description="Backend API for the EMU student support system.",
-    version="1.0.0",
+    version="1.1.0",
 )
 app.add_middleware(
     SessionMiddleware,
@@ -135,8 +142,15 @@ def list_categories(request: Request):
 
         cursor.execute(
             """
-            SELECT id, name_tr, name_en
+            SELECT
+                id,
+                name_tr,
+                name_en,
+                description,
+                responsible_unit,
+                is_active
             FROM categories
+            WHERE is_active = 1
             ORDER BY name_tr
             """
         )
@@ -148,6 +162,55 @@ def list_categories(request: Request):
             "id": row[0],
             "name_tr": row[1],
             "name_en": row[2],
+            "description": row[3],
+            "responsible_unit": row[4],
+            "is_active": bool(row[5]),
+        }
+        for row in rows
+    ]
+
+
+@app.get("/subcategories")
+def list_subcategories(
+    request: Request,
+    category_id: int | None = None,
+):
+    require_session_user(
+        request,
+        allowed_roles=("student", "staff", "admin"),
+    )
+
+    parameters: list[int] = []
+    category_filter = ""
+
+    if category_id is not None:
+        category_filter = "AND category_id = ?"
+        parameters.append(category_id)
+
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            f"""
+            SELECT
+                id,
+                category_id,
+                name_tr,
+                name_en,
+                is_active
+            FROM subcategories
+            WHERE is_active = 1
+            {category_filter}
+            ORDER BY name_tr, id
+            """,
+            parameters,
+        ).fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "category_id": row[1],
+            "name_tr": row[2],
+            "name_en": row[3],
+            "is_active": bool(row[4]),
         }
         for row in rows
     ]
@@ -318,6 +381,10 @@ def get_knowledge_entry(
 class QuestionCreate(BaseModel):
     student_id: int
     category_id: int
+    subcategory_id: int | None = Field(
+        default=None,
+        gt=0,
+    )
     language: str
     subject: str = Field(
         min_length=3,
@@ -343,8 +410,7 @@ def create_question(
             status_code=403,
             detail="You can only submit questions for your own account.",
         )
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
+    with connect_database(database_path) as connection:
         cursor = connection.cursor()
 
         cursor.execute(
@@ -372,6 +438,7 @@ def create_question(
             SELECT id
             FROM categories
             WHERE id = ?
+              AND is_active = 1
             """,
             (question.category_id,),
         )
@@ -381,6 +448,30 @@ def create_question(
                 status_code=400,
                 detail="Invalid category.",
             )
+
+        if question.subcategory_id is not None:
+            cursor.execute(
+                """
+                SELECT id
+                FROM subcategories
+                WHERE id = ?
+                  AND category_id = ?
+                  AND is_active = 1
+                """,
+                (
+                    question.subcategory_id,
+                    question.category_id,
+                ),
+            )
+
+            if cursor.fetchone() is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Invalid subcategory for the selected "
+                        "category."
+                    ),
+                )
 
         cursor.execute(
             """
@@ -404,15 +495,17 @@ def create_question(
             INSERT INTO questions (
                 student_id,
                 category_id,
+                subcategory_id,
                 language_id,
                 subject,
                 question_text
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 question.student_id,
                 question.category_id,
+                question.subcategory_id,
                 language[0],
                 question.subject.strip(),
                 question.question_text.strip(),
@@ -420,10 +513,18 @@ def create_question(
         )
 
         question_id = cursor.lastrowid
+        write_audit_log(
+            connection,
+            user_id=user["id"],
+            action="question_created",
+            entity_type="question",
+            entity_id=question_id,
+        )
         connection.commit()
 
     return {
         "id": question_id,
+        "subcategory_id": question.subcategory_id,
         "status": "open",
         "message": "Question created successfully.",
     }
@@ -466,7 +567,11 @@ def list_questions(
                 categories.name_en,
                 languages.code,
                 staff.full_name,
-                questions.created_at
+                questions.created_at,
+                subcategories.id,
+                subcategories.name_tr,
+                subcategories.name_en,
+                questions.answered_at
             FROM questions
             JOIN users AS students
                 ON questions.student_id = students.id
@@ -476,6 +581,8 @@ def list_questions(
                 ON questions.language_id = languages.id
             LEFT JOIN users AS staff
                 ON questions.assigned_staff_id = staff.id
+            LEFT JOIN subcategories
+                ON questions.subcategory_id = subcategories.id
             {where_clause}
             ORDER BY questions.id DESC
             LIMIT ? OFFSET ?
@@ -498,6 +605,16 @@ def list_questions(
             "language": row[8],
             "assigned_staff": row[9],
             "created_at": row[10],
+            "subcategory": (
+                {
+                    "id": row[11],
+                    "name_tr": row[12],
+                    "name_en": row[13],
+                }
+                if row[11] is not None
+                else None
+            ),
+            "answered_at": row[14],
         }
         for row in rows
     ]
@@ -524,8 +641,7 @@ def assign_question(
             status_code=403,
             detail="Staff can only assign questions to themselves.",
         )
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
+    with connect_database(database_path) as connection:
         cursor = connection.cursor()
 
         cursor.execute(
@@ -585,6 +701,19 @@ def assign_question(
             ),
         )
 
+        record_question_assignment(
+            connection,
+            question_id=question_id,
+            assigned_to_user_id=assignment.staff_id,
+        )
+        write_audit_log(
+            connection,
+            user_id=user["id"],
+            action="question_assigned",
+            entity_type="question",
+            entity_id=question_id,
+        )
+
         connection.commit()
 
     return {
@@ -620,8 +749,7 @@ def answer_question(
             status_code=403,
             detail="Staff can only submit answers as themselves.",
         )
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
+    with connect_database(database_path) as connection:
         cursor = connection.cursor()
 
         cursor.execute(
@@ -699,10 +827,23 @@ def answer_question(
             UPDATE questions
             SET
                 status = 'answered',
-                updated_at = CURRENT_TIMESTAMP
+                updated_at = CURRENT_TIMESTAMP,
+                answered_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
             (question_id,),
+        )
+
+        close_question_assignment(
+            connection,
+            question_id=question_id,
+        )
+        write_audit_log(
+            connection,
+            user_id=user["id"],
+            action="answer_created",
+            entity_type="answer",
+            entity_id=answer_id,
         )
 
         connection.commit()
@@ -762,7 +903,11 @@ def get_question_detail(
                 languages.code,
                 staff.full_name,
                 questions.created_at,
-                questions.updated_at
+                questions.updated_at,
+                subcategories.id,
+                subcategories.name_tr,
+                subcategories.name_en,
+                questions.answered_at
             FROM questions
             JOIN users AS students
                 ON questions.student_id = students.id
@@ -772,6 +917,8 @@ def get_question_detail(
                 ON questions.language_id = languages.id
             LEFT JOIN users AS staff
                 ON questions.assigned_staff_id = staff.id
+            LEFT JOIN subcategories
+                ON questions.subcategory_id = subcategories.id
             WHERE questions.id = ?
             """,
             (question_id,),
@@ -804,6 +951,25 @@ def get_question_detail(
 
         answer_rows = cursor.fetchall()
 
+        cursor.execute(
+            """
+            SELECT
+                question_assignments.id,
+                users.id,
+                users.full_name,
+                question_assignments.assigned_at,
+                question_assignments.is_active
+            FROM question_assignments
+            JOIN users
+                ON question_assignments.assigned_to_user_id = users.id
+            WHERE question_assignments.question_id = ?
+            ORDER BY question_assignments.id
+            """,
+            (question_id,),
+        )
+
+        assignment_rows = cursor.fetchall()
+
     answers = [
         {
             "id": row[0],
@@ -813,6 +979,17 @@ def get_question_detail(
             "created_at": row[4],
         }
         for row in answer_rows
+    ]
+
+    assignment_history = [
+        {
+            "id": row[0],
+            "assigned_to_user_id": row[1],
+            "assigned_to_name": row[2],
+            "assigned_at": row[3],
+            "is_active": bool(row[4]),
+        }
+        for row in assignment_rows
     ]
 
     return {
@@ -831,6 +1008,17 @@ def get_question_detail(
         "assigned_staff": question[10],
         "created_at": question[11],
         "updated_at": question[12],
+        "subcategory": (
+            {
+                "id": question[13],
+                "name_tr": question[14],
+                "name_en": question[15],
+            }
+            if question[13] is not None
+            else None
+        ),
+        "answered_at": question[16],
+        "assignment_history": assignment_history,
         "answers": answers,
     }
 @app.get("/dashboard", include_in_schema=False)
@@ -932,6 +1120,11 @@ def list_student_questions(
                     LIMIT 1
                 ) AS answer_date
 
+                ,subcategories.id
+                ,subcategories.name_tr
+                ,subcategories.name_en
+                ,questions.answered_at
+
             FROM questions
 
             JOIN categories
@@ -942,6 +1135,9 @@ def list_student_questions(
 
             LEFT JOIN users AS staff
                 ON questions.assigned_staff_id = staff.id
+
+            LEFT JOIN subcategories
+                ON questions.subcategory_id = subcategories.id
 
             WHERE questions.student_id = ?
 
@@ -969,6 +1165,16 @@ def list_student_questions(
             "staff_name": row[10],
             "latest_answer": row[11],
             "answer_date": row[12],
+            "subcategory": (
+                {
+                    "id": row[13],
+                    "name_tr": row[14],
+                    "name_en": row[15],
+                }
+                if row[13] is not None
+                else None
+            ),
+            "answered_at": row[16],
         }
         for row in rows
     ]
@@ -1074,6 +1280,16 @@ def login(
     )
 
     if not password_is_valid:
+        with connect_database(database_path) as connection:
+            write_audit_log(
+                connection,
+                user_id=(user[0] if user is not None else None),
+                action="login_failed",
+                entity_type="user",
+                entity_id=(user[0] if user is not None else None),
+            )
+            connection.commit()
+
         return templates.TemplateResponse(
             request=request,
             name="login.html",
@@ -1084,6 +1300,16 @@ def login(
         )
 
     request.session.clear()
+
+    with connect_database(database_path) as connection:
+        write_audit_log(
+            connection,
+            user_id=user[0],
+            action="login_succeeded",
+            entity_type="user",
+            entity_id=user[0],
+        )
+        connection.commit()
 
     request.session["user"] = {
     "id": user[0],
@@ -1101,6 +1327,19 @@ def login(
 
 @app.post("/logout", include_in_schema=False)
 def logout(request: Request):
+    user = request.session.get("user")
+
+    if user:
+        with connect_database(database_path) as connection:
+            write_audit_log(
+                connection,
+                user_id=user["id"],
+                action="logout",
+                entity_type="user",
+                entity_id=user["id"],
+            )
+            connection.commit()
+
     request.session.clear()
 
     return RedirectResponse(
@@ -1169,6 +1408,14 @@ def admin_overview(request: Request):
         category_count = cursor.fetchone()[0]
 
         cursor.execute(
+            "SELECT COUNT(*) FROM subcategories"
+        )
+        subcategory_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM audit_logs")
+        audit_log_count = cursor.fetchone()[0]
+
+        cursor.execute(
             "SELECT COUNT(*) FROM knowledge_entries"
         )
         knowledge_count = cursor.fetchone()[0]
@@ -1184,6 +1431,8 @@ def admin_overview(request: Request):
         },
         "answers": answer_count,
         "categories": category_count,
+        "subcategories": subcategory_count,
+        "audit_logs": audit_log_count,
         "knowledge_entries": knowledge_count,
     }
 class AdminUserCreate(BaseModel):
@@ -1221,7 +1470,7 @@ def create_admin_user(
     request: Request,
     new_user: AdminUserCreate,
 ):
-    require_session_user(
+    current_user = require_session_user(
         request,
         allowed_roles=("admin",),
     )
@@ -1263,8 +1512,7 @@ def create_admin_user(
         bcrypt.gensalt(),
     ).decode("utf-8")
 
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
+    with connect_database(database_path) as connection:
         cursor = connection.cursor()
 
         cursor.execute(
@@ -1336,6 +1584,13 @@ def create_admin_user(
         )
 
         user_id = cursor.lastrowid
+        write_audit_log(
+            connection,
+            user_id=current_user["id"],
+            action="user_created",
+            entity_type="user",
+            entity_id=user_id,
+        )
         connection.commit()
 
     return {
@@ -1378,8 +1633,7 @@ def update_admin_user_role(
             detail="Invalid user role.",
         )
 
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
+    with connect_database(database_path) as connection:
         cursor = connection.cursor()
 
         cursor.execute(
@@ -1424,6 +1678,14 @@ def update_admin_user_role(
                 role_record[0],
                 user_id,
             ),
+        )
+
+        write_audit_log(
+            connection,
+            user_id=current_user["id"],
+            action="user_role_updated",
+            entity_type="user",
+            entity_id=user_id,
         )
 
         connection.commit()
@@ -1474,6 +1736,57 @@ def admin_users(request: Request):
             "role": row[4],
             "is_active": bool(row[5]),
             "created_at": row[6],
+        }
+        for row in rows
+    ]
+
+
+@app.get("/admin/audit-logs")
+def admin_audit_logs(
+    request: Request,
+    limit: int = 100,
+    offset: int = 0,
+):
+    require_session_user(
+        request,
+        allowed_roles=("admin",),
+    )
+
+    limit = min(max(limit, 1), 200)
+    offset = max(offset, 0)
+
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                audit_logs.id,
+                audit_logs.user_id,
+                users.full_name,
+                audit_logs.action,
+                audit_logs.entity_type,
+                audit_logs.entity_id,
+                audit_logs.timestamp
+            FROM audit_logs
+            LEFT JOIN users
+                ON audit_logs.user_id = users.id
+            ORDER BY audit_logs.id DESC
+            LIMIT ? OFFSET ?
+            """,
+            (
+                limit,
+                offset,
+            ),
+        ).fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "user_id": row[1],
+            "user_name": row[2],
+            "action": row[3],
+            "entity_type": row[4],
+            "entity_id": row[5],
+            "timestamp": row[6],
         }
         for row in rows
     ]
@@ -1556,7 +1869,7 @@ async def upload_question_attachment(
     stored_path.write_bytes(file_content)
 
     try:
-        with sqlite3.connect(database_path) as connection:
+        with connect_database(database_path) as connection:
             cursor = connection.cursor()
             cursor.execute(
                 """
@@ -1564,18 +1877,27 @@ async def upload_question_attachment(
                     question_id,
                     file_name,
                     file_path,
-                    mime_type
+                    mime_type,
+                    file_size
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
                     question_id,
                     original_name,
                     relative_path,
                     file.content_type,
+                    len(file_content),
                 ),
             )
             attachment_id = cursor.lastrowid
+            write_audit_log(
+                connection,
+                user_id=user["id"],
+                action="attachment_uploaded",
+                entity_type="attachment",
+                entity_id=attachment_id,
+            )
             connection.commit()
     except Exception:
         stored_path.unlink(missing_ok=True)
@@ -1630,6 +1952,7 @@ def list_question_attachments(
                 id,
                 file_name,
                 mime_type,
+                file_size,
                 uploaded_at
             FROM attachments
             WHERE question_id = ?
@@ -1644,7 +1967,8 @@ def list_question_attachments(
             "question_id": question_id,
             "file_name": row[1],
             "mime_type": row[2],
-            "uploaded_at": row[3],
+            "size": row[3],
+            "uploaded_at": row[4],
             "download_url": (
                 f"/attachments/{row[0]}/download"
             ),
@@ -1730,6 +2054,26 @@ class CategoryCreate(BaseModel):
         min_length=2,
         max_length=150,
     )
+    description: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+    responsible_unit: str | None = Field(
+        default=None,
+        max_length=200,
+    )
+
+
+class SubcategoryCreate(BaseModel):
+    category_id: int = Field(gt=0)
+    name_tr: str = Field(
+        min_length=2,
+        max_length=150,
+    )
+    name_en: str = Field(
+        min_length=2,
+        max_length=150,
+    )
 
 
 class QuestionCategoryUpdate(BaseModel):
@@ -1741,9 +2085,9 @@ def create_category(
     request: Request,
     category: CategoryCreate,
 ):
-    require_session_user(
+    current_user = require_session_user(
         request,
-        allowed_roles=("staff", "admin"),
+        allowed_roles=("admin",),
     )
 
     name_tr = " ".join(
@@ -1752,8 +2096,18 @@ def create_category(
     name_en = " ".join(
         category.name_en.split()
     )
+    description = (
+        " ".join(category.description.split())
+        if category.description
+        else None
+    )
+    responsible_unit = (
+        " ".join(category.responsible_unit.split())
+        if category.responsible_unit
+        else None
+    )
 
-    with sqlite3.connect(database_path) as connection:
+    with connect_database(database_path) as connection:
         cursor = connection.cursor()
 
         existing_categories = cursor.execute(
@@ -1780,13 +2134,27 @@ def create_category(
                 """
                 INSERT INTO categories (
                     name_tr,
-                    name_en
+                    name_en,
+                    description,
+                    responsible_unit
                 )
-                VALUES (?, ?)
+                VALUES (?, ?, ?, ?)
                 """,
-                (name_tr, name_en),
+                (
+                    name_tr,
+                    name_en,
+                    description,
+                    responsible_unit,
+                ),
             )
             category_id = cursor.lastrowid
+            write_audit_log(
+                connection,
+                user_id=current_user["id"],
+                action="category_created",
+                entity_type="category",
+                entity_id=category_id,
+            )
             connection.commit()
         except sqlite3.IntegrityError as error:
             raise HTTPException(
@@ -1798,7 +2166,110 @@ def create_category(
         "id": category_id,
         "name_tr": name_tr,
         "name_en": name_en,
+        "description": description,
+        "responsible_unit": responsible_unit,
+        "is_active": True,
         "message": "Category created successfully.",
+    }
+
+
+@app.post("/subcategories", status_code=201)
+def create_subcategory(
+    request: Request,
+    subcategory: SubcategoryCreate,
+):
+    current_user = require_session_user(
+        request,
+        allowed_roles=("admin",),
+    )
+
+    name_tr = " ".join(subcategory.name_tr.split())
+    name_en = " ".join(subcategory.name_en.split())
+
+    with connect_database(database_path) as connection:
+        category_record = connection.execute(
+            """
+            SELECT id
+            FROM categories
+            WHERE id = ?
+              AND is_active = 1
+            """,
+            (subcategory.category_id,),
+        ).fetchone()
+
+        if category_record is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Active category required.",
+            )
+
+        duplicate = connection.execute(
+            """
+            SELECT id
+            FROM subcategories
+            WHERE category_id = ?
+              AND (
+                  lower(name_tr) = lower(?)
+                  OR lower(name_en) = lower(?)
+              )
+            """,
+            (
+                subcategory.category_id,
+                name_tr,
+                name_en,
+            ),
+        ).fetchone()
+
+        if duplicate is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "A subcategory with this name already exists "
+                    "for the category."
+                ),
+            )
+
+        try:
+            cursor = connection.execute(
+                """
+                INSERT INTO subcategories (
+                    category_id,
+                    name_tr,
+                    name_en
+                )
+                VALUES (?, ?, ?)
+                """,
+                (
+                    subcategory.category_id,
+                    name_tr,
+                    name_en,
+                ),
+            )
+            subcategory_id = cursor.lastrowid
+            write_audit_log(
+                connection,
+                user_id=current_user["id"],
+                action="subcategory_created",
+                entity_type="subcategory",
+                entity_id=subcategory_id,
+            )
+            connection.commit()
+        except sqlite3.IntegrityError as error:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "A subcategory with this name already exists "
+                    "for the category."
+                ),
+            ) from error
+
+    return {
+        "id": subcategory_id,
+        "category_id": subcategory.category_id,
+        "name_tr": name_tr,
+        "name_en": name_en,
+        "is_active": True,
+        "message": "Subcategory created successfully.",
     }
 
 
@@ -1810,13 +2281,12 @@ def update_question_category(
     request: Request,
     category: QuestionCategoryUpdate,
 ):
-    require_session_user(
+    current_user = require_session_user(
         request,
         allowed_roles=("staff", "admin"),
     )
 
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
+    with connect_database(database_path) as connection:
         cursor = connection.cursor()
 
         question_record = cursor.execute(
@@ -1839,6 +2309,7 @@ def update_question_category(
             SELECT id, name_tr, name_en
             FROM categories
             WHERE id = ?
+              AND is_active = 1
             """,
             (category.category_id,),
         ).fetchone()
@@ -1854,6 +2325,7 @@ def update_question_category(
             UPDATE questions
             SET
                 category_id = ?,
+                subcategory_id = NULL,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
@@ -1861,6 +2333,13 @@ def update_question_category(
                 category.category_id,
                 question_id,
             ),
+        )
+        write_audit_log(
+            connection,
+            user_id=current_user["id"],
+            action="question_category_updated",
+            entity_type="question",
+            entity_id=question_id,
         )
         connection.commit()
 

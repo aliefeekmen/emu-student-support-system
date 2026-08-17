@@ -1,179 +1,138 @@
-# Data Analysis and Normalization Report
+# Privacy-Clean Dataset Analysis and Import Report
 
-## 1. Purpose
+## 1. Scope
 
-The purpose of this phase was to explore, clean, and normalize the raw DAU student question-answer dataset.
+The active knowledge base was rebuilt from the approved privacy-clean master dataset. The earlier 769-record exploratory dataset is a legacy input and is not used or distributed in the final package.
 
-The cleaned data was prepared for database storage and future AI integration.
+The application dataset contains 744 institutional question-answer records prepared for relational storage, search, and later AI evaluation. Model training and the official train/test split are outside this phase.
 
-The train/test split and AI model training were not completed in this phase. The official train/test split will be provided at a later stage.
+## 2. Delivered Dataset
 
-## 2. Dataset Information
+File:
 
-Dataset file:
+`data/EMU_QA_Master_Privacy_Cleaned_744.csv`
 
-`Dau_chatbot_Raw_dataset.csv`
-
-The dataset uses UTF-8 encoding and contains both Turkish and English question-answer records.
-
-### Dataset Columns
+Encoding: UTF-8 with BOM for reliable Windows/Excel compatibility.
 
 | Column | Description |
 |---|---|
-| ID | Unique record number |
-| Soru | Student question |
-| Cevap | Official answer |
-| Kategori (TR) | Turkish category name |
-| Kategori (EN) | English category name |
-| Dil | Language code (`tr` or `en`) |
+| `id` | New stable database ID, 1–744 |
+| `record_id` | Privacy-clean master record identifier |
+| `source_record_id` | Source lineage identifier supplied by the master dataset |
+| `question` | Institutional question text |
+| `answer` | Official answer text |
+| `category_tr` | Turkish category name |
+| `category_en` | English category name |
+| `language` | `tr` or `en` |
+| `duplicate_count` | Size of the matching-question group in the approved master |
 
-## 3. Initial Exploration Results
+Only the fields needed for the institutional Q&A workflow are imported into SQLite. Lineage and duplicate-count fields remain in the CSV for review.
 
-The following results were found during the first data exploration:
-
-| Check | Result |
-|---|---:|
-| Total records | 769 |
-| Total columns | 6 |
-| Turkish records | 654 |
-| English records | 115 |
-| Fully duplicated rows | 0 |
-| Duplicated questions | 120 |
-| Duplicated IDs | 0 |
-| Missing Turkish categories | 1 |
-| Missing English categories | 1 |
-| Questions with unnecessary outer spaces | 48 |
-| Answers with unnecessary outer spaces | 609 |
-
-## 4. Data Cleaning Operations
-
-The following cleaning operations were applied:
-
-1. Unnecessary spaces at the beginning and end of text values were removed.
-2. Repeated horizontal spaces were changed to single spaces.
-3. Line-ending characters were standardized.
-4. Language codes were changed to lowercase.
-5. The missing category was completed by checking similar records.
-6. Inconsistent category translations were standardized.
-7. Identified spelling mistakes in category names were corrected.
-8. The cleaned data was saved as a separate CSV file.
-
-The original raw dataset was not changed.
-
-Cleaned dataset file:
-
-`Dau_chatbot_Cleaned_dataset.csv`
-
-## 5. Missing Category Correction
-
-The record with ID `5552` had no Turkish or English category information.
-
-The question was about Microsoft Authenticator, changing a telephone, and being unable to receive a verification code.
-
-Similar records in the dataset were examined. These records were assigned to the following category:
-
-- Turkish: `Bilgi Yönetimi ve Hizmetleri Şubesi`
-- English: `Information Management and Services Branch`
-
-The missing category was completed with these values.
-
-## 6. Category Standardization
-
-One Turkish category had two different English translations:
-
-- `Course Issues (Access Opening)`
-- `Course Issues (Access Activation)`
-
-The dataset README used `Course Issues (Access Opening)`. Therefore, this value was selected as the standard translation.
-
-The following category spelling and translation problems were also corrected:
-
-| Previous Value | Standardized Value |
-|---|---|
-| Burs İşleri (Blgi) | Burs İşleri (Bilgi) |
-| Information Management and Services Branch Öneri | Information Management and Services Branch Suggestion |
-| Graduation Procedures Otomatik E-posta | Graduation Procedures Automatic Email |
-| Mezuniyet İşlemleri (İlişki Kesme, Diploma Onay) | Graduation Procedures (Disenrollment, Diploma Approval) |
-| Student Affairs Öneri | Student Affairs Suggestion |
-
-## 7. Duplicated Questions
-
-Before cleaning, 120 duplicated questions were found.
-
-After space normalization, the number increased to 121. This happened because two questions that were different only because of unnecessary spaces became equal after cleaning.
-
-Duplicated questions were not automatically deleted. The same question may have been asked at different times or may have received different answers.
-
-Deleting these records could cause information loss. Therefore, all 769 records were preserved.
-
-## 8. Validation After Cleaning
-
-The cleaned dataset was checked again.
+## 3. Validated Results
 
 | Check | Result |
 |---|---:|
-| Total records | 769 |
-| Preserved IDs | 769 |
-| Missing values | 0 |
-| Unnecessary outer spaces | 0 |
-| Duplicated IDs | 0 |
-| Fully duplicated rows | 0 |
+| Total records | 744 |
+| Turkish records | 603 |
+| English records | 141 |
+| Bilingual category pairs | 31 |
+| Required-field missing values | 0 |
+| Duplicate `id` values | 0 |
+| Duplicate `record_id` values | 0 |
+| Duplicate `source_record_id` values | 0 |
+| Records in a repeated-question group | 117 |
+| Repeated-question groups | 45 |
 
-The ID values in the raw and cleaned datasets were compared. All original IDs were preserved.
+Repeated questions are retained because a repeated question may still have a distinct approved answer, language, category, or institutional context. The `duplicate_count` field makes those groups reviewable without silently deleting records.
 
-## 9. Database Normalization
+## 4. Data Preparation
 
-Language and category values were repeated in many CSV records.
+The import artifact was created from the privacy-clean master with the following controls:
 
-To reduce repeated data, the dataset was divided into relational database tables:
+1. The approved row order was retained.
+2. Stable application IDs from 1 through 744 were assigned.
+3. Questions, answers, bilingual categories, and language codes were preserved from the approved master.
+4. Required fields were checked for missing values.
+5. IDs and lineage identifiers were checked for uniqueness.
+6. The final CSV was written in a Windows-friendly UTF-8 format.
+7. The importer rejects any file that does not contain exactly 744 valid rows.
 
-- `languages`
-- `categories`
-- `knowledge_entries`
+The migration deliberately does not copy knowledge records from the legacy 769-record backup.
 
-The `knowledge_entries` table does not store the full language and category names in every row. It uses foreign keys to connect to the `languages` and `categories` tables.
+## 5. Relational Normalization
 
-After normalization, the database contained:
+Repeated values are separated into normalized tables:
 
-- 2 languages
-- 31 categories
-- 769 institutional question-answer records
+- `languages` stores `tr` and `en` once.
+- `categories` stores the 31 bilingual category pairs.
+- `knowledge_entries` stores each approved question and answer with category and language foreign keys.
 
-## 10. Database Validation
+The live support workflow uses separate `users`, `questions`, `question_assignments`, `answers`, `attachments`, `subcategories`, `ai_suggestions`, and `audit_logs` tables. This keeps the curated institutional knowledge base separate from new student support requests.
 
-The following database checks were completed:
+## 6. Safe Import Procedure
 
-- No foreign key errors were found.
-- 654 Turkish records were verified.
-- 115 English records were verified.
-- 769 question-answer records were verified.
-- Category and language relationships were successfully retrieved through the API.
+For a new database:
 
-## 11. Initial System Setup
+```bat
+python scripts\create_database.py
+python scripts\import_data.py
+python scripts\seed_demo_users.py
+python scripts\validate_database.py
+```
 
-A basic backend system was developed with FastAPI.
+`import_data.py` performs these checks before writing:
 
-The initial system supports:
+- Required columns exist.
+- The dataset contains exactly 744 rows.
+- Required values are complete.
+- Languages and categories resolve to foreign keys.
 
-- API and database health checking
-- Database statistics
-- Category listing
-- Knowledge-base searching
-- Language filtering
-- Category filtering
-- Pagination
-- Retrieving one knowledge entry by ID
-- Student question submission
-- Question assignment to staff
-- Staff answers
-- Viewing question and answer details
+It then enables SQLite secure deletion, replaces only `knowledge_entries`, commits the validated rows, and runs `VACUUM` so deleted legacy content is not retained in unused database pages.
 
-Nine automated backend and frontend tests were created, and all tests passed.
+## 7. Database Validation
 
-## 12. Conclusion
+The delivered database passed:
 
-The raw dataset was successfully explored, cleaned, and normalized.
+- `PRAGMA integrity_check` → `ok`
+- `PRAGMA foreign_key_check` → 0 violations
+- Schema version → 2
+- Knowledge entries → 744
+- Language distribution → 603 Turkish, 141 English
+- Required schema-v2 tables and columns → present
+- Active assignment uniqueness check → passed
+- Answered/status timestamp consistency check → passed
 
-All 769 records were preserved and transferred to a relational database. The database and initial API provide a suitable foundation for the institutional question-answer memory.
+The same checks can be repeated with:
 
-The official train/test split and AI model integration will be completed in the next project phase.
+```bat
+python scripts\validate_database.py
+```
+
+## 8. Privacy and Delivery Controls
+
+The final release excludes:
+
+- The legacy raw and intermediate datasets
+- The legacy 769-record database backup
+- The real `.env` file and session secret
+- Git history and editor metadata
+- Python caches and test caches
+- User-uploaded files
+
+Only the privacy-clean CSV, migrated 744-record database, generated SQL schema/data dump, application code, tests, and documentation are included.
+
+## 9. System Verification
+
+The automated suite contains 30 tests covering the database counts and schema version, authentication, role permissions, category/subcategory creation, student question submission, assignment history, answered timestamps, attachment metadata, audit-log access, knowledge search, administrator user management, dashboards, and static files.
+
+Result:
+
+```text
+30 passed, 1 third-party deprecation warning
+```
+
+The warning comes from the current FastAPI/Starlette test-client compatibility layer and does not indicate an application failure.
+
+## 10. Conclusion
+
+The active application now uses one privacy-clean, validated source of truth containing 744 records. The normalized schema and migration tooling support the required student, staff, administrator, attachment, assignment, AI-metadata, and audit workflows while keeping the legacy dataset out of the final delivery.

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 import sqlite3
 
@@ -5,64 +7,188 @@ import sqlite3
 project_folder = Path(__file__).resolve().parent.parent
 database_path = project_folder / "database" / "dau_chatbot.db"
 
-connection = sqlite3.connect(database_path)
-connection.execute("PRAGMA foreign_keys = ON")
-cursor = connection.cursor()
+required_columns = {
+    "categories": {
+        "description",
+        "responsible_unit",
+        "is_active",
+    },
+    "questions": {
+        "subcategory_id",
+        "answered_at",
+    },
+    "attachments": {
+        "file_size",
+    },
+    "ai_suggestions": {
+        "provider",
+        "prompt_context",
+        "was_used",
+        "generated_at",
+    },
+}
 
-print("=== FOREIGN KEY CHECK ===")
+required_tables = {
+    "subcategories",
+    "question_assignments",
+    "audit_logs",
+}
 
-cursor.execute("PRAGMA foreign_key_check")
-foreign_key_errors = cursor.fetchall()
+errors: list[str] = []
 
-if foreign_key_errors:
-    print("Foreign key errors:", foreign_key_errors)
-else:
-    print("No foreign key errors.")
+with sqlite3.connect(database_path) as connection:
+    connection.execute("PRAGMA foreign_keys = ON")
 
-print("\n=== LANGUAGE DISTRIBUTION ===")
+    integrity_check = connection.execute(
+        "PRAGMA integrity_check"
+    ).fetchone()[0]
 
-cursor.execute(
-    """
-    SELECT
-        languages.code,
-        COUNT(knowledge_entries.id)
-    FROM knowledge_entries
-    JOIN languages
-        ON knowledge_entries.language_id = languages.id
-    GROUP BY languages.code
-    ORDER BY languages.code
-    """
-)
+    if integrity_check != "ok":
+        errors.append(
+            f"Integrity check failed: {integrity_check}"
+        )
 
-for language, count in cursor.fetchall():
-    print(language, ":", count)
+    foreign_key_errors = connection.execute(
+        "PRAGMA foreign_key_check"
+    ).fetchall()
 
-print("\n=== SAMPLE NORMALIZED RECORD ===")
+    if foreign_key_errors:
+        errors.append(
+            f"Foreign key errors: {foreign_key_errors}"
+        )
 
-cursor.execute(
-    """
-    SELECT
-        knowledge_entries.id,
-        knowledge_entries.question,
-        categories.name_tr,
-        categories.name_en,
-        languages.code
-    FROM knowledge_entries
-    JOIN categories
-        ON knowledge_entries.category_id = categories.id
-    JOIN languages
-        ON knowledge_entries.language_id = languages.id
-    ORDER BY knowledge_entries.id DESC
-    LIMIT 1
-    """
-)
+    schema_version = int(
+        connection.execute(
+            "PRAGMA user_version"
+        ).fetchone()[0]
+    )
 
-record = cursor.fetchone()
+    if schema_version != 2:
+        errors.append(
+            f"Expected schema version 2, found {schema_version}."
+        )
 
-print("ID:", record[0])
-print("Question:", record[1])
-print("Category TR:", record[2])
-print("Category EN:", record[3])
-print("Language:", record[4])
+    table_names = {
+        str(row[0])
+        for row in connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+            """
+        )
+    }
 
-connection.close()
+    missing_tables = sorted(
+        required_tables - table_names
+    )
+
+    if missing_tables:
+        errors.append(
+            "Missing tables: "
+            + ", ".join(missing_tables)
+        )
+
+    for table_name, expected_columns in required_columns.items():
+        actual_columns = {
+            str(row[1])
+            for row in connection.execute(
+                f"PRAGMA table_info({table_name})"
+            )
+        }
+        missing_columns = sorted(
+            expected_columns - actual_columns
+        )
+
+        if missing_columns:
+            errors.append(
+                f"Missing {table_name} columns: "
+                + ", ".join(missing_columns)
+            )
+
+    knowledge_count = int(
+        connection.execute(
+            "SELECT COUNT(*) FROM knowledge_entries"
+        ).fetchone()[0]
+    )
+
+    if knowledge_count != 744:
+        errors.append(
+            f"Expected 744 knowledge entries, found {knowledge_count}."
+        )
+
+    language_counts = {
+        str(code): int(count)
+        for code, count in connection.execute(
+            """
+            SELECT languages.code, COUNT(*)
+            FROM knowledge_entries
+            JOIN languages
+                ON knowledge_entries.language_id = languages.id
+            GROUP BY languages.code
+            """
+        )
+    }
+
+    expected_language_counts = {
+        "tr": 603,
+        "en": 141,
+    }
+
+    if language_counts != expected_language_counts:
+        errors.append(
+            "Unexpected language distribution: "
+            f"{language_counts}"
+        )
+
+    unanswered_with_answered_at = int(
+        connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM questions
+            WHERE status NOT IN ('answered', 'closed')
+              AND answered_at IS NOT NULL
+            """
+        ).fetchone()[0]
+    )
+
+    if unanswered_with_answered_at:
+        errors.append(
+            "Unanswered questions have answered_at values."
+        )
+
+    active_assignment_duplicates = int(
+        connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM (
+                SELECT question_id
+                FROM question_assignments
+                WHERE is_active = 1
+                GROUP BY question_id
+                HAVING COUNT(*) > 1
+            )
+            """
+        ).fetchone()[0]
+    )
+
+    if active_assignment_duplicates:
+        errors.append(
+            "A question has more than one active assignment."
+        )
+
+print("=== DATABASE VALIDATION ===")
+print("Schema version:", schema_version)
+print("Integrity check:", integrity_check)
+print("Foreign key errors:", len(foreign_key_errors))
+print("Knowledge entries:", knowledge_count)
+print("Language distribution:", language_counts)
+print("Required tables present:", not missing_tables)
+
+if errors:
+    print("\nValidation failed:")
+    for error in errors:
+        print("-", error)
+    raise SystemExit(1)
+
+print("\nDatabase validation passed.")
