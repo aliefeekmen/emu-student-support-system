@@ -188,9 +188,9 @@ These accounts are for local development only:
 
 | Role | Email | Password |
 |---|---|---|
-| Student | `student@demo.local` | `Student123!` |
-| Staff | `staff@demo.local` | `Staff123!` |
-| Admin | `admin@demo.local` | `Admin123!` |
+| Student | `student@demo.local` | `123` |
+| Staff | `staff@demo.local` | `123` |
+| Admin | `admin@demo.local` | `123` |
 
 Never reuse these credentials in production.
 

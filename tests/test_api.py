@@ -29,7 +29,7 @@ def login_as_staff():
         "/login",
         data={
             "email": "staff@demo.local",
-            "password": "Staff123!",
+            "password": "123",
         },
         follow_redirects=False,
     )
@@ -42,7 +42,7 @@ def login_as_student():
         "/login",
         data={
             "email": "student@demo.local",
-            "password": "Student123!",
+            "password": "123",
         },
         follow_redirects=False,
     )
@@ -287,7 +287,7 @@ def login_as_admin():
         "/login",
         data={
             "email": "admin@demo.local",
-            "password": "Admin123!",
+            "password": "123",
         },
         follow_redirects=False,
     )
@@ -320,7 +320,7 @@ def test_staff_cannot_access_admin_endpoint():
         "/login",
         data={
             "email": "staff@demo.local",
-            "password": "Staff123!",
+            "password": "123",
         },
     )
 
@@ -336,7 +336,7 @@ def test_student_redirected_from_expert_dashboard():
         "/login",
         data={
             "email": "student@demo.local",
-            "password": "Student123!",
+            "password": "123",
         },
     )
 
