@@ -177,6 +177,69 @@ def test_get_missing_knowledge_entry():
     }
 
 
+def test_staff_can_generate_ai_suggestion(monkeypatch):
+    question_id = None
+
+    def fake_generate_ai_answer(**kwargs):
+        assert "Approved answer:" in kwargs["prompt_context"]
+        return (
+            "This is a reviewed AI answer suggestion.",
+            "openai/gpt-oss-20b",
+        )
+
+    monkeypatch.setattr(
+        "app.main.generate_ai_answer",
+        fake_generate_ai_answer,
+    )
+
+    try:
+        login_as_student()
+        question_response = client.post(
+            "/questions",
+            json={
+                "student_id": 1,
+                "category_id": 15,
+                "language": "tr",
+                "subject": "Yatay geçiş bursu",
+                "question_text": (
+                    "Yatay geçiş yaparsam burs durumum ne olur?"
+                ),
+            },
+        )
+        assert question_response.status_code == 201
+        question_id = question_response.json()["id"]
+
+        client.post("/logout")
+        login_as_staff()
+
+        response = client.post(
+            f"/questions/{question_id}/ai-suggestion"
+        )
+        data = response.json()
+
+        assert response.status_code == 201
+        assert data["provider"] == "groq"
+        assert data["model"] == "openai/gpt-oss-20b"
+        assert data["suggestion"] == (
+            "This is a reviewed AI answer suggestion."
+        )
+        assert len(data["sources"]) == 3
+
+        with sqlite3.connect(database_path) as connection:
+            saved_suggestion = connection.execute(
+                """
+                SELECT suggestion_text
+                FROM ai_suggestions
+                WHERE id = ?
+                """,
+                (data["id"],),
+            ).fetchone()
+
+        assert saved_suggestion[0] == data["suggestion"]
+    finally:
+        cleanup_category_test(question_id=question_id)
+
+
 def test_expert_dashboard_page():
     login_as_staff()
 
@@ -414,6 +477,13 @@ def cleanup_category_test(
 ):
     with sqlite3.connect(database_path) as connection:
         if question_id is not None:
+            connection.execute(
+                """
+                DELETE FROM ai_suggestions
+                WHERE question_id = ?
+                """,
+                (question_id,),
+            )
             connection.execute(
                 """
                 DELETE FROM question_assignments

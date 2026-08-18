@@ -15,14 +15,19 @@ The included database uses schema version 2 and the approved privacy-clean insti
 - Attachment metadata and secure download checks
 - Administrator-only category and subcategory creation
 - Audit logging for authentication and important write operations
-- 30 automated tests passing
+- GPT-OSS answer suggestions grounded in similar knowledge records
+- Staff review and use tracking for AI-generated suggestions
 
-AI model training and the official train/test split remain future work. The `ai_suggestions` table is ready for later integration.
+The AI workflow uses retrieval-augmented generation (RAG). It finds
+similar approved records in the 744-record knowledge base and sends only
+those records to the OpenAI GPT-OSS 20B model through Groq. Staff members
+review every suggestion before using it as an answer.
 
 ## Main Technologies
 
 - Python, FastAPI, Uvicorn, Pydantic
 - SQLite and Pandas
+- OpenAI GPT-OSS 20B through the Groq API
 - Jinja2, HTML, CSS, JavaScript
 - bcrypt and signed sessions
 - Pytest and HTTPX
@@ -74,10 +79,12 @@ copy .env.example .env
 notepad .env
 ```
 
-Replace the example secret in `.env` with a long private value:
+Replace the example values in `.env` with private values:
 
 ```env
 SESSION_SECRET=replace-with-a-long-random-secret
+GROQ_API_KEY=gsk_your_private_groq_key
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
 The delivered `database\emu_chatbot.db` is already imported and migrated. Validate it:
@@ -198,7 +205,7 @@ python -m pytest -v
 Current result:
 
 ```text
-30 passed, 1 third-party deprecation warning
+31 passed, 1 third-party deprecation warning
 ```
 
 Coverage includes authentication, role restrictions, the 744-record knowledge base, schema-v2 installation, category and subcategory workflows, assignment history, answered timestamps, attachments, audit-log access, administrator user management, pages, and static files.
@@ -214,8 +221,8 @@ Coverage includes authentication, role restrictions, the 744-record knowledge ba
 
 ## Future Work
 
-- Integrate the official train/test split and selected AI model
-- Add automated category classification and evaluated answer suggestions
+- Add a formal evaluation set for retrieval and answer quality
+- Add automated category classification
 - Complete Turkish/English interface switching
 - Add password reset and account activation controls
 - Move to PostgreSQL and production hosting if required

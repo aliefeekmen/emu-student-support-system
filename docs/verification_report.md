@@ -1,6 +1,6 @@
 # Verification Report
 
-Date: 2026-08-14
+Date: 2026-08-18
 
 ## Delivered Build
 
@@ -21,10 +21,14 @@ python -m pytest -v
 Result:
 
 ```text
-30 passed, 1 warning in 8.79s
+31 passed, 1 warning in 10.36s
 ```
 
 The warning is a third-party FastAPI/Starlette test-client deprecation notice. No application test failed.
+
+The AI endpoint test replaces the external model call with a controlled test
+response. It verifies authentication, retrieval context, API response shape,
+and storage in the `ai_suggestions` table without consuming Groq quota.
 
 ## Database Checks
 

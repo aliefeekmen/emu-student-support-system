@@ -7,6 +7,8 @@ const state = {
     selectedQuestionId: null,
     selectedQuestion: null,
     suggestion: "",
+    suggestionId: null,
+    suggestionUsed: false,
     search: "",
     status: "",
 };
@@ -540,32 +542,20 @@ function displayQuestion(question) {
     }
 }
 
-function getSearchKeyword(subject) {
-    const ignoredWords = new Set([
-        "about",
-        "with",
-        "from",
-        "this",
-        "that",
-        "question",
-        "problem",
-        "sorunu",
-        "hakkinda",
-        "hakkÄ±nda",
-    ]);
-
-    return subject
-        .split(/\s+/)
-        .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ""))
-        .find(
-            (word) =>
-                word.length >= 4
-                && !ignoredWords.has(word.toLowerCase())
-        ) || subject;
-}
-
 async function loadSimilarQuestions(question) {
-    const keyword = getSearchKeyword(question.subject);
+    if (["answered", "closed"].includes(question.status)) {
+        state.suggestion = "";
+        state.suggestionId = null;
+        state.suggestionUsed = false;
+        elements.similarQuestions.innerHTML = `
+            <div class="empty-state">
+                This question has already been answered.
+            </div>
+        `;
+        elements.aiSuggestion.textContent =
+            "A new suggestion is not generated for an answered question.";
+        return;
+    }
 
     elements.similarQuestions.innerHTML = `
         <div class="empty-state">
@@ -574,15 +564,20 @@ async function loadSimilarQuestions(question) {
     `;
 
     state.suggestion = "";
+    state.suggestionId = null;
+    state.suggestionUsed = false;
+    elements.aiSuggestion.textContent =
+        "Generating an AI answer suggestion...";
 
     try {
         const result = await apiRequest(
-            `/knowledge?language=${encodeURIComponent(question.language)
-            }&search=${encodeURIComponent(keyword)
-            }&limit=3`
+            `/questions/${question.id}/ai-suggestion`,
+            {
+                method: "POST",
+            }
         );
 
-        if (result.items.length === 0) {
+        if (result.sources.length === 0) {
             elements.similarQuestions.innerHTML = `
                 <div class="empty-state">
                     No similar records found.
@@ -590,13 +585,12 @@ async function loadSimilarQuestions(question) {
             `;
 
             elements.aiSuggestion.textContent =
-                "AI integration will be added after the "
-                + "official train/test split is provided.";
+                "No AI suggestion could be generated.";
 
             return;
         }
 
-        elements.similarQuestions.innerHTML = result.items
+        elements.similarQuestions.innerHTML = result.sources
             .map(
                 (item) => `
                     <a
@@ -610,17 +604,17 @@ async function loadSimilarQuestions(question) {
             )
             .join("");
 
-        state.suggestion = result.items[0].answer;
+        state.suggestion = result.suggestion;
+        state.suggestionId = result.id;
 
-        elements.aiSuggestion.textContent =
-            "AI is not enabled yet. Closest institutional "
-            + `answer: ${state.suggestion}`;
+        elements.aiSuggestion.textContent = result.suggestion;
     } catch (error) {
         elements.similarQuestions.innerHTML = `
             <div class="empty-state">
                 ${escapeHtml(error.message)}
             </div>
         `;
+        elements.aiSuggestion.textContent = error.message;
     }
 }
 
@@ -665,7 +659,12 @@ async function sendAnswer() {
                 body: JSON.stringify({
                     staff_id: STAFF_ID,
                     answer_text: answerText,
-                    used_ai_suggestion: false,
+                    used_ai_suggestion:
+                        state.suggestionUsed,
+                    ai_suggestion_id:
+                        state.suggestionUsed
+                            ? state.suggestionId
+                            : null,
                 }),
             }
         );
@@ -697,6 +696,7 @@ function useSuggestion() {
     }
 
     elements.answerText.value = state.suggestion;
+    state.suggestionUsed = true;
 
     showMessage(
         "Institutional answer added. Review it before sending."

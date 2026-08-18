@@ -4,7 +4,7 @@
 
 The active knowledge base was rebuilt from the approved privacy-clean master dataset. The earlier 769-record exploratory dataset is a legacy input and is not used or distributed in the final package.
 
-The application dataset contains 744 institutional question-answer records prepared for relational storage, search, and later AI evaluation. Model training and the official train/test split are outside this phase.
+The application dataset contains 744 institutional question-answer records prepared for relational storage, retrieval, and GPT-powered answer suggestions. The application uses retrieval-augmented generation rather than changing the model weights.
 
 ## 2. Delivered Dataset
 
@@ -123,12 +123,12 @@ Only the privacy-clean CSV, migrated 744-record database, generated SQL schema/d
 
 ## 9. System Verification
 
-The automated suite contains 30 tests covering the database counts and schema version, authentication, role permissions, category/subcategory creation, student question submission, assignment history, answered timestamps, attachment metadata, audit-log access, knowledge search, administrator user management, dashboards, and static files.
+The automated suite contains 31 tests covering the database counts and schema version, authentication, role permissions, category/subcategory creation, student question submission, AI suggestion storage, assignment history, answered timestamps, attachment metadata, audit-log access, knowledge search, administrator user management, dashboards, and static files.
 
 Result:
 
 ```text
-30 passed, 1 third-party deprecation warning
+31 passed, 1 third-party deprecation warning
 ```
 
 The warning comes from the current FastAPI/Starlette test-client compatibility layer and does not indicate an application failure.

@@ -155,7 +155,9 @@ Files remain outside SQLite; only validated metadata and the storage path are re
 | `accepted`, `was_used` | Review/use flags |
 | `created_at`, `generated_at` | Lifecycle timestamps |
 
-This table is prepared for later AI integration; the current application does not train or call a model.
+The application stores each generated GPT-OSS suggestion with its retrieved
+institutional context. The review flags show whether staff accepted and used
+the suggestion in the final answer.
 
 ### `audit_logs`
 
@@ -213,6 +215,6 @@ It can be rerun without duplicating assignments or schema objects.
 | Turkish entries | 603 |
 | English entries | 141 |
 | Dataset categories | 31 |
-| Automated tests | 30 passed |
+| Automated tests | 31 passed |
 
 SQLite is appropriate for this project phase. A later production deployment can preserve the same relational design while moving to PostgreSQL.

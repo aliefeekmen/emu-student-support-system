@@ -18,6 +18,13 @@ from fastapi import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.ai_service import (
+    AIConfigurationError,
+    AIProviderError,
+    build_prompt_context,
+    find_similar_entries,
+    generate_ai_answer,
+)
 from app.database import (
     close_question_assignment,
     connect_database,
@@ -725,6 +732,127 @@ class AnswerCreate(BaseModel):
     staff_id: int
     answer_text: str = Field(min_length=3)
     used_ai_suggestion: bool = False
+    ai_suggestion_id: int | None = Field(
+        default=None,
+        gt=0,
+    )
+
+
+@app.post(
+    "/questions/{question_id}/ai-suggestion",
+    status_code=201,
+)
+def create_ai_suggestion(
+    request: Request,
+    question_id: int,
+):
+    user = require_session_user(
+        request,
+        allowed_roles=("staff", "admin"),
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        question = connection.execute(
+            """
+            SELECT
+                questions.subject,
+                questions.question_text,
+                languages.code,
+                categories.id,
+                categories.name_tr,
+                categories.name_en
+            FROM questions
+            JOIN languages
+                ON questions.language_id = languages.id
+            JOIN categories
+                ON questions.category_id = categories.id
+            WHERE questions.id = ?
+            """,
+            (question_id,),
+        ).fetchone()
+
+    if question is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found.",
+        )
+
+    sources = find_similar_entries(
+        database_path,
+        subject=question[0],
+        question_text=question[1],
+        language=question[2],
+        category_id=question[3],
+        limit=3,
+    )
+
+    if not sources:
+        raise HTTPException(
+            status_code=404,
+            detail="No institutional records were found.",
+        )
+
+    prompt_context = build_prompt_context(sources)
+    category_name = (
+        question[4] if question[2] == "tr" else question[5]
+    )
+
+    try:
+        suggestion_text, model_name = generate_ai_answer(
+            subject=question[0],
+            question_text=question[1],
+            language=question[2],
+            category_name=category_name,
+            prompt_context=prompt_context,
+        )
+    except AIConfigurationError as error:
+        raise HTTPException(
+            status_code=503,
+            detail=str(error),
+        ) from error
+    except AIProviderError as error:
+        raise HTTPException(
+            status_code=502,
+            detail=str(error),
+        ) from error
+
+    with connect_database(database_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO ai_suggestions (
+                question_id,
+                provider,
+                model_name,
+                prompt_context,
+                suggestion_text
+            )
+            VALUES (?, 'groq', ?, ?, ?)
+            """,
+            (
+                question_id,
+                model_name,
+                prompt_context,
+                suggestion_text,
+            ),
+        )
+        suggestion_id = cursor.lastrowid
+        write_audit_log(
+            connection,
+            user_id=user["id"],
+            action="ai_suggestion_generated",
+            entity_type="ai_suggestion",
+            entity_id=suggestion_id,
+        )
+        connection.commit()
+
+    return {
+        "id": suggestion_id,
+        "question_id": question_id,
+        "provider": "groq",
+        "model": model_name,
+        "suggestion": suggestion_text,
+        "sources": sources,
+    }
 
 
 @app.post(
@@ -749,6 +877,22 @@ def answer_question(
             status_code=403,
             detail="Staff can only submit answers as themselves.",
         )
+
+    if answer.used_ai_suggestion and answer.ai_suggestion_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="AI suggestion ID is required.",
+        )
+
+    if (
+        not answer.used_ai_suggestion
+        and answer.ai_suggestion_id is not None
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="AI suggestion ID was provided but not used.",
+        )
+
     with connect_database(database_path) as connection:
         cursor = connection.cursor()
 
@@ -802,6 +946,26 @@ def answer_question(
                 detail="Valid staff account required.",
             )
 
+        if answer.ai_suggestion_id is not None:
+            cursor.execute(
+                """
+                SELECT id
+                FROM ai_suggestions
+                WHERE id = ?
+                  AND question_id = ?
+                """,
+                (
+                    answer.ai_suggestion_id,
+                    question_id,
+                ),
+            )
+
+            if cursor.fetchone() is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid AI suggestion for this question.",
+                )
+
         cursor.execute(
             """
             INSERT INTO answers (
@@ -821,6 +985,18 @@ def answer_question(
         )
 
         answer_id = cursor.lastrowid
+
+        if answer.ai_suggestion_id is not None:
+            cursor.execute(
+                """
+                UPDATE ai_suggestions
+                SET
+                    accepted = 1,
+                    was_used = 1
+                WHERE id = ?
+                """,
+                (answer.ai_suggestion_id,),
+            )
 
         cursor.execute(
             """
